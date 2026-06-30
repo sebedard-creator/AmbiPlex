@@ -1,5 +1,7 @@
 # AmbiPlex
 
+![Interface AmbiPlex](screenshot1.png)
+
 Un système Ambilight ultra-performant et 100% logiciel conçu pour se synchroniser avec le lecteur vidéo **Plex** et piloter un ruban LED matériel (via **WLED / QuinLED ESP32**) sur un réseau local.
 
 ## ✨ Fonctionnalités
@@ -28,6 +30,8 @@ Un système Ambilight ultra-performant et 100% logiciel conçu pour se synchroni
 3. Saisissez l'adresse IP de votre contrôleur WLED.
 4. Ajustez le nombre de LEDs pour chaque bordure (Haut, Bas, Gauche, Droite).
 5. Lancez un film sur Plex : les couleurs s'afficheront instantanément dans le simulateur web et sur votre mur !
+
+![Simulateur LED](screenshot2.png)
 
 ## 🛡️ Sécurité & Confidentialité
 Aucun secret (Token Plex, IP locale) n'est stocké dans le code source. Toutes les données sensibles sont sauvegardées dans un fichier `config.json` local (qui est ignoré par Git).
