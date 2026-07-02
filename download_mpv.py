@@ -36,7 +36,7 @@ def download_and_extract_mpv():
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
                     
-        print(f"Extraction de mpv-2.dll depuis {file_name}...")
+        print(f"Extraction de libmpv-2.dll depuis {file_name}...")
         # Extraction du dll
         found_dll = False
         with py7zr.SevenZipFile(archive_path, mode='r') as z:
@@ -54,13 +54,13 @@ def download_and_extract_mpv():
                 
                 # Si le fichier est dans un sous-dossier ou s'appelle libmpv-2.dll, on le met au bon format à la racine
                 extracted_path = os.path.join(os.getcwd(), dll_name)
-                final_path = os.path.join(os.getcwd(), 'mpv-2.dll')
+                final_path = os.path.join(os.getcwd(), 'libmpv-2.dll')
                 
                 if extracted_path != final_path:
                     # Move to root if needed
                     basename = os.path.basename(extracted_path)
                     os.rename(extracted_path, os.path.join(os.getcwd(), basename))
-                    if basename != 'mpv-2.dll':
+                    if basename != 'libmpv-2.dll':
                         os.rename(os.path.join(os.getcwd(), basename), final_path)
                 
                 found_dll = True

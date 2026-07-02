@@ -1,6 +1,6 @@
 @echo off
 echo =========================================
-echo Arret du serveur Ambilight Sync...
+echo Arret du serveur AmbiPlex...
 echo =========================================
 
 :: Cherche le processus qui ecoute sur le port 5777 et le force a s'arreter

@@ -27,7 +27,6 @@ class PlexSynchronizer:
         self.elastic_limit_ms = 2000
         self.log_callback = None
         self.last_seek_time = 0
-        self.seek_threshold = 2000
         self.sync_offset_ms = sync_offset_ms
 
     def _log(self, level, msg):
@@ -57,6 +56,29 @@ class PlexSynchronizer:
         self._log("info", "Démarrage du listener WebSocket...")
         self.notifier = self.server.startAlertListener(self._on_plex_message)
         self._log("info", "Listener démarré.")
+
+    def reconnect(self, plex_url: str, plex_token: str, master_client_name: str):
+        self._log("info", "Reconnexion demandée avec de nouveaux paramètres...")
+        self.plex_url = plex_url
+        self.plex_token = plex_token
+        self.master_client_name = master_client_name
+        self.master_client = master_client_name
+        self.is_playing = False
+        self.current_rating_key = None
+        self.current_title = None
+        self.current_media_path = None
+        self.master_client_id = None
+        
+        if self.notifier:
+            try:
+                self.notifier.stop()
+            except Exception:
+                pass
+            self.notifier = None
+            
+        self.server = None
+        self.connect()
+        self.start_websocket_listener()
 
     def _on_plex_message(self, message):
         try:
@@ -131,9 +153,24 @@ class PlexSynchronizer:
                             valid_session = session_info
 
                 if not valid_session:
+                    if self.is_playing and getattr(self, 'last_ping_time', None):
+                        # Timeout de 15s si on ne reçoit plus de ping pour ce lecteur
+                        if time.time() - self.last_ping_time > 15:
+                            self._log("info", "Lecture arrêtée (timeout sans ping).")
+                            self.is_playing = False
+                            self.current_rating_key = None
+                            self.current_media_path = None
                     return
 
                 state = valid_session.get('state')
+                if state == 'stopped':
+                    if self.is_playing:
+                        self._log("info", "Lecture arrêtée (signal stopped).")
+                        self.is_playing = False
+                    self.current_rating_key = None
+                    self.current_media_path = None
+                    return
+                    
                 view_offset = valid_session.get('viewOffset', 0)
                 rating_key = valid_session.get('ratingKey')
                 
@@ -170,7 +207,6 @@ class PlexSynchronizer:
                     self.is_playing = False
                     return
 
-                import time
                 self.last_ping_offset = view_offset
                 if state == 'playing':
                     self.last_ping_time = time.time()
@@ -188,14 +224,12 @@ class PlexSynchronizer:
 
     @property
     def current_view_offset(self):
-        import time
         offset = getattr(self, 'sync_offset_ms', 0)
         if self.is_playing and getattr(self, 'last_ping_time', None):
             return self.last_ping_offset + int((time.time() - self.last_ping_time) * 1000) + offset
         return getattr(self, 'last_ping_offset', 0) + offset
 
     def compute_chase_speed(self, local_offset_ms: int):
-        import time
         diff = self.current_view_offset - local_offset_ms
         
         if abs(diff) > self.elastic_limit_ms:

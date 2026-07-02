@@ -1,5 +1,4 @@
 import os
-import sys
 
 # On s'assure que Python trouve le DLL mpv dans le dossier actuel
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,8 +11,19 @@ if hasattr(os, 'add_dll_directory'):
 
 import mpv
 import logging
+import ctypes
 
 logger = logging.getLogger("SlavePlayer")
+
+def _create_hidden_window():
+    try:
+        user32 = ctypes.windll.user32
+        # WS_POPUP = 0x80000000 pour éviter toute bordure/barre de titre
+        hwnd = user32.CreateWindowExW(0, "STATIC", "AmbiPlex_Hidden", 0x80000000, 0, 0, 160, 90, 0, 0, 0, None)
+        return str(hwnd)
+    except Exception as e:
+        logger.error(f"Impossible de créer la fenêtre fantôme: {e}")
+        return None
 
 class SlavePlayer:
     def __init__(self, headless=True):
@@ -22,17 +32,22 @@ class SlavePlayer:
         
         # Options strictes requises par l'architecture
         kwargs = {
-            'hwdec': 'auto-copy', # Utiliser auto-copy pour rapatrier l'image en RAM
+            'hwdec': 'auto',      # Décoder sur le GPU
             'ao': 'null',         # Bypass complet de l'audio
             'hr-seek': 'yes',     # Forcer la recherche à la frame exacte
             'vd-lavc-fast': 'yes', # Accélérer le décodage CPU (si le GPU n'est pas supporté)
-            'vd-lavc-skiploopfilter': 'all', # Ignorer les filtres de deblocking (énorme gain CPU, invisible en 160x90)
+            'vd-lavc-skiploopfilter': 'all', # Ignorer les filtres de deblocking
             'log_handler': self._mpv_log
         }
         
         if headless:
-            kwargs['vo'] = 'null'
-            kwargs['force_window'] = 'no'
+            kwargs['vo'] = 'gpu'
+            hwnd = _create_hidden_window()
+            if hwnd:
+                kwargs['wid'] = hwnd
+            else:
+                kwargs['vo'] = 'null' # Fallback
+                kwargs['force_window'] = 'no'
         else:
             kwargs['vo'] = 'gpu'
             kwargs['force_window'] = 'yes'
@@ -42,17 +57,17 @@ class SlavePlayer:
             self.player = mpv.MPV(**kwargs)
             logger.info(f"Lecteur MPV initialisé avec succès (Headless: {headless})")
         except Exception as e:
-            logger.error(f"Erreur fatale d'initialisation MPV. Le fichier mpv-2.dll est-il présent dans le dossier ? Erreur : {e}")
+            logger.error(f"Erreur fatale d'initialisation MPV. Le fichier libmpv-2.dll est-il présent dans le dossier ? Erreur : {e}")
             raise
 
     def _mpv_log(self, loglevel, component, message):
-        if loglevel in ['warn', 'error', 'fatal']:
-            logger.warning(f"[MPV] {component}: {message}")
+        if loglevel in ['error', 'fatal']:
+            logger.error(f"[MPV] {component}: {message}")
 
     def load_file(self, filepath: str, start_time_ms: int = 0):
         if not filepath or not os.path.exists(filepath):
             logger.error(f"Fichier vidéo local introuvable : {filepath}")
-            return
+            return False
 
         self.current_file = filepath
         logger.info(f"Chargement dans MPV : {filepath} à {start_time_ms}ms")
@@ -61,6 +76,8 @@ class SlavePlayer:
         
         if start_time_ms > 0:
             self.seek(start_time_ms)
+            
+        return True
             
     def play(self):
         self.player.pause = False
@@ -72,12 +89,13 @@ class SlavePlayer:
         try:
             from PIL import Image
             import numpy as np
-            # Capture la frame brute
-            img = self.player.screenshot_raw()
+            # Capture la frame de la fenêtre (redimensionnement GPU 100% matériel)
+            img = self.player.screenshot_raw('window')
             if img:
-                # Resize très rapide
-                small = img.resize((width, height), Image.Resampling.NEAREST)
-                return np.array(small)
+                # S'assurer de la bonne taille finale si la fenêtre a des bordures
+                if img.size != (width, height):
+                    img = img.resize((width, height), Image.Resampling.NEAREST)
+                return np.array(img)
         except Exception:
             pass
         return None

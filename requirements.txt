@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+plexapi
+numpy
+Pillow
+python-mpv
+requests
+py7zr

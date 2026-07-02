@@ -27,22 +27,22 @@
                         <label>Master Client Name</label>
                         <input type="text" id="master_client" placeholder="Sony Bravia" required>
                     </div>
-                    <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border);">
+                    <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border);">
                         <label for="preset_select">Profil de Synchro Actif (Auto-détecté)</label>
-                        <select id="preset_select" disabled style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--primary); font-weight: bold;">
+                        <select id="preset_select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--bg-color); color: var(--primary); font-weight: bold;">
                             <option value="">-- Lancez un film d'abord --</option>
                         </select>
                     </div>
 
                     <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;">
-                        <input type="number" id="sync_offset" value="0" step="1" disabled>
+                        <input type="number" id="sync_offset" value="0" step="1">
                         <label for="sync_offset" style="margin-bottom: 0;">Offset de Calibration (Frames à 24 FPS) - <span style="font-size: 0.8em; opacity: 0.7;">En attente de connexion Plex</span></label>
                     </div>
                     <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;">
                         <input type="checkbox" id="headless" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
                         <label for="headless" style="margin-bottom: 0;">Mode Headless (Cacher la fenêtre MPV)</label>
                     </div>
-                    <button type="submit" id="btn_save" class="btn" disabled style="grid-column: 1 / -1; margin-top: 10px; opacity: 0.5; cursor: not-allowed;">Attente de Plex...</button>
+                    <button type="submit" id="btn_save" class="btn" style="grid-column: 1 / -1; margin-top: 10px;">Sauvegarder Plex & Offset</button>
                 </form>
                 <div id="saveMsg" class="success-msg hidden">Configuration sauvegardée ! Le module se reconnecte...</div>
             </div>
@@ -97,6 +97,30 @@
                                     <input type="number" id="leds_side" value="30" min="0">
                                 </div>
                             </div>
+                            <div class="input-group">
+                                <label for="led_start_pos">Point de Départ (LED 0)</label>
+                                <select id="led_start_pos" style="width: 100%; padding: 0.5rem; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;">
+                                    <option value="top_left">En haut à gauche</option>
+                                    <option value="top_right">En haut à droite</option>
+                                    <option value="bottom_right">En bas à droite</option>
+                                    <option value="bottom_left">En bas à gauche</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="led_direction">Sens de Rotation</label>
+                                <select id="led_direction" style="width: 100%; padding: 0.5rem; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;">
+                                    <option value="clockwise">Sens Horaire ↻</option>
+                                    <option value="counter_clockwise">Sens Anti-Horaire ↺</option>
+                                </select>
+                            </div>
+                            <div class="input-group tooltip-container">
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="checkbox" id="disable_autocrop" style="width: auto; margin-right: 10px; accent-color: var(--primary);">
+                                    Désactiver l'Auto-Crop
+                                    <span class="info-icon" style="margin-left: 5px;">?</span>
+                                    <div class="tooltip">Désactive la détection et la suppression automatiques des bandes noires (utile pour diagnostiquer des clignotements).</div>
+                                </label>
+                            </div>
                             <div class="input-group tooltip-container">
                                 <label>
                                     Profondeur de Capture <span id="led_depth_val" style="float: right; color: var(--primary);">8%</span>
@@ -107,20 +131,67 @@
                             </div>
                             <div class="input-group tooltip-container">
                                 <label>
+                                    Marge des Coins <span id="led_corner_gap_val" style="float: right; color: var(--primary);">0%</span>
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">Augmente cette valeur si tes bandes LED ne vont pas jusqu'au bout des coins de la télévision.</div>
+                                </label>
+                                <input type="range" id="led_corner_gap" min="0" max="25" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_corner_gap_val').innerText = this.value + '%'">
+                            </div>
+                            <div class="input-group tooltip-container">
+                                <label>
                                     Lissage Temporel <span id="led_smoothing_val" style="float: right; color: var(--primary);">65%</span>
                                     <span class="info-icon">?</span>
                                     <div class="tooltip">Plus la valeur est élevée, plus les transitions de couleurs seront douces (évite l'effet stroboscope).</div>
                                 </label>
                                 <input type="range" id="led_smoothing" min="0" max="100" value="65" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_smoothing_val').innerText = this.value + '%'">
                             </div>
-                            <div class="input-group tooltip-container">
-                                <label>
-                                    Luminosité globale <span id="led_brightness_val" style="float: right; color: var(--primary);">80%</span>
-                                    <span class="info-icon">?</span>
-                                    <div class="tooltip">Baisse l'intensité maximale des LEDs (Bloqué à 80% par sécurité pour protéger l'alimentation).</div>
-                                </label>
-                                <input type="range" id="led_brightness" min="0" max="80" value="80" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_val').innerText = this.value + '%'">
+
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+                            <h3 style="font-size: 1.1rem; font-weight: 500; margin-bottom: 1rem; color: var(--text-primary);">Décalage Fin (Offset LED)</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                                Décalez les couleurs physiquement sur les rubans pour compenser un positionnement asymétrique.
+                            </p>
+                            <div class="input-group">
+                                <label>Haut (Top) <span id="offset_top_val" style="float: right; color: var(--primary);">0</span></label>
+                                <input type="range" id="offset_top" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_top_val').innerText = this.value">
                             </div>
+                            <div class="input-group">
+                                <label>Droite (Right) <span id="offset_right_val" style="float: right; color: var(--primary);">0</span></label>
+                                <input type="range" id="offset_right" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_right_val').innerText = this.value">
+                            </div>
+                            <div class="input-group">
+                                <label>Bas (Bottom) <span id="offset_bottom_val" style="float: right; color: var(--primary);">0</span></label>
+                                <input type="range" id="offset_bottom" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_bottom_val').innerText = this.value">
+                            </div>
+                            <div class="input-group">
+                                <label>Gauche (Left) <span id="offset_left_val" style="float: right; color: var(--primary);">0</span></label>
+                                <input type="range" id="offset_left" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_left_val').innerText = this.value">
+                            </div>
+
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                <h3 style="font-size: 1.1rem; font-weight: 500; margin: 0; color: var(--text-primary);">Luminosité Individuelle</h3>
+                                <button type="button" id="brightness_lock_btn" class="btn" style="background: var(--primary); padding: 5px 10px; font-size: 0.9em; min-width: 100px;">
+                                    <span id="brightness_lock_icon">🔒</span> <span id="brightness_lock_text">Liés</span>
+                                </button>
+                            </div>
+                            <div class="input-group">
+                                <label>Haut (Top) <span id="led_brightness_top_val" style="float: right; color: var(--primary);">100%</span></label>
+                                <input type="range" id="led_brightness_top" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_top_val').innerText = this.value + '%'">
+                            </div>
+                            <div class="input-group">
+                                <label>Droite (Right) <span id="led_brightness_right_val" style="float: right; color: var(--primary);">100%</span></label>
+                                <input type="range" id="led_brightness_right" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_right_val').innerText = this.value + '%'">
+                            </div>
+                            <div class="input-group">
+                                <label>Bas (Bottom) <span id="led_brightness_bottom_val" style="float: right; color: var(--primary);">100%</span></label>
+                                <input type="range" id="led_brightness_bottom" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_bottom_val').innerText = this.value + '%'">
+                            </div>
+                            <div class="input-group">
+                                <label>Gauche (Left) <span id="led_brightness_left_val" style="float: right; color: var(--primary);">100%</span></label>
+                                <input type="range" id="led_brightness_left" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_left_val').innerText = this.value + '%'">
+                            </div>
+
                             <div class="input-group tooltip-container">
                                 <label>
                                     Rafraîchissement (FPS) <span id="led_refresh_rate_val" style="float: right; color: var(--primary);">20</span>
@@ -137,7 +208,7 @@
                             </div>
                             <div style="display: flex; gap: 10px; margin-top: 15px;">
                                 <button type="submit" class="btn" style="flex: 2;">Appliquer la Calibration</button>
-                                <button type="button" class="btn" style="flex: 1; background: #555;" onclick="resetSliders()">Par défaut</button>
+                                <button type="button" class="btn" style="flex: 1; background: #e74c3c;" onclick="fetch('http://' + document.getElementById('wled_ip').value + '/win&T=0', {mode: 'no-cors'})">Éteindre</button>
                             </div>
                         </form>
                     </div>
@@ -150,6 +221,6 @@
             </div>
         </div>
     </div>
-    <script src="/static/app.js?v=2"></script>
+    <script src="/static/app.js?v=4"></script>
 </body>
 </html>

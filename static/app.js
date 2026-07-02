@@ -1,8 +1,17 @@
+function getVal(id, def) {
+    if(!document.getElementById(id)) return def;
+    const v = parseInt(document.getElementById(id).value);
+    return isNaN(v) ? def : v;
+}
+function getDef(val, def) {
+    return (val !== undefined && val !== null) ? val : def;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     let currentPresets = {};
 
-    // Load config
-    fetch("/api/config")
+    // Load config (anti-cache)
+    fetch("/api/config?t=" + new Date().getTime(), { cache: "no-store" })
         .then(res => res.json())
         .then(data => {
             document.getElementById("plex_url").value = data.plex_url || "http://127.0.0.1:32400";
@@ -13,20 +22,52 @@ document.addEventListener("DOMContentLoaded", () => {
             // LED config
             if(document.getElementById("wled_ip")) {
                 document.getElementById("wled_ip").value = data.wled_ip || "";
-                document.getElementById("leds_top").value = data.leds_top || 50;
-                document.getElementById("leds_side").value = data.leds_side || 30;
-                document.getElementById("led_depth").value = data.led_depth || 8;
-                document.getElementById("led_depth_val").innerText = (data.led_depth || 8) + "%";
-                document.getElementById("led_smoothing").value = data.led_smoothing || 65;
-                document.getElementById("led_smoothing_val").innerText = (data.led_smoothing || 65) + "%";
+                document.getElementById("leds_top").value = getDef(data.leds_top, 50);
+                document.getElementById("leds_side").value = getDef(data.leds_side, 30);
+                document.getElementById("led_depth").value = getDef(data.led_depth, 15);
+                document.getElementById("led_depth_val").innerText = getDef(data.led_depth, 15) + "%";
+                document.getElementById("led_smoothing").value = getDef(data.led_smoothing, 30);
+                document.getElementById("led_smoothing_val").innerText = getDef(data.led_smoothing, 30) + "%";
                 if(document.getElementById("led_brightness")) {
-                    document.getElementById("led_brightness").value = data.led_brightness || 80;
-                    document.getElementById("led_brightness_val").innerText = (data.led_brightness || 80) + "%";
+                    document.getElementById("led_brightness").value = getDef(data.led_brightness, 80);
+                    document.getElementById("led_brightness_val").innerText = getDef(data.led_brightness, 80) + "%";
                 }
                 if(document.getElementById("led_refresh_rate")) {
-                    document.getElementById("led_refresh_rate").value = data.led_refresh_rate || 20;
-                    document.getElementById("led_refresh_native").checked = data.led_refresh_native || false;
-                    document.getElementById("led_refresh_rate_val").innerText = data.led_refresh_native ? "Natif" : (data.led_refresh_rate || 20);
+                    if(data.led_refresh_rate !== undefined) document.getElementById("led_refresh_rate").value = data.led_refresh_rate;
+                    if(data.led_corner_gap !== undefined) {
+                        document.getElementById("led_corner_gap").value = data.led_corner_gap;
+                        document.getElementById("led_corner_gap_val").innerText = data.led_corner_gap + "%";
+                    }
+                    if(data.led_start_pos !== undefined) document.getElementById("led_start_pos").value = data.led_start_pos;
+                    if(data.led_direction !== undefined) document.getElementById("led_direction").value = data.led_direction;
+                    
+                    const offsets = ['top', 'right', 'bottom', 'left'];
+                    for(const side of offsets) {
+                        const key = 'offset_' + side;
+                        if(data[key] !== undefined) {
+                            const el = document.getElementById(key);
+                            if (el) {
+                                el.value = data[key];
+                                document.getElementById(key + '_val').innerText = data[key] + (side === 'top' || side === 'right' || side === 'bottom' || side === 'left' ? '' : '');
+                            }
+                        }
+                    }
+
+                    const brightness_sides = ['top', 'right', 'bottom', 'left'];
+                    for(const side of brightness_sides) {
+                        const key = 'led_brightness_' + side;
+                        if(data[key] !== undefined) {
+                            const el = document.getElementById(key);
+                            if (el) {
+                                el.value = data[key];
+                                document.getElementById(key + '_val').innerText = data[key] + "%";
+                            }
+                        }
+                    }
+
+                    if(data.led_refresh_native !== undefined) document.getElementById("led_refresh_native").checked = data.led_refresh_native;
+                    if(data.disable_autocrop !== undefined && document.getElementById("disable_autocrop")) document.getElementById("disable_autocrop").checked = data.disable_autocrop;
+                    document.getElementById("led_refresh_rate_val").innerText = (data.led_refresh_native !== false) ? "Natif" : (data.led_refresh_rate || 20);
                 }
                 
                 // Dessiner le simulateur (avec ou sans couleurs) pour afficher les numéros immédiatement
@@ -43,15 +84,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Mettre à jour l'input avec la valeur du preset actif !
                 document.getElementById("sync_offset").value = currentPresets[data.current_preset];
                 
-                // Activer les contrôles
+                // Activer l'offset
                 document.getElementById("sync_offset").disabled = false;
-                const btnSave = document.getElementById("btn_save");
-                if(btnSave) {
-                    btnSave.disabled = false;
-                    btnSave.style.opacity = 1;
-                    btnSave.style.cursor = "pointer";
-                    btnSave.textContent = "Sauvegarder la Calibration";
-                }
             } else {
                 document.getElementById("sync_offset").value = data.sync_offset_frames || 0;
             }
@@ -76,12 +110,26 @@ document.addEventListener("DOMContentLoaded", () => {
             sync_offset_frames: newOffset,
             presets: currentPresets,
             current_preset: presetName || "",
+            
+            // LED settings (must be preserved)
             wled_ip: document.getElementById("wled_ip") ? document.getElementById("wled_ip").value : "",
-            leds_top: document.getElementById("leds_top") ? parseInt(document.getElementById("leds_top").value) || 50 : 50,
-            leds_side: document.getElementById("leds_side") ? parseInt(document.getElementById("leds_side").value) || 30 : 30,
-            led_depth: document.getElementById("led_depth") ? parseInt(document.getElementById("led_depth").value) || 8 : 8,
-            led_smoothing: document.getElementById("led_smoothing") ? parseInt(document.getElementById("led_smoothing").value) || 65 : 65,
-            led_brightness: document.getElementById("led_brightness") ? parseInt(document.getElementById("led_brightness").value) || 80 : 80
+            leds_top: getVal("leds_top", 50),
+            leds_side: getVal("leds_side", 30),
+            led_depth: getVal("led_depth", 15),
+            led_smoothing: getVal("led_smoothing", 30),
+            led_brightness_top: getVal("led_brightness_top", 100),
+            led_brightness_right: getVal("led_brightness_right", 100),
+            led_brightness_bottom: getVal("led_brightness_bottom", 100),
+            led_brightness_left: getVal("led_brightness_left", 100),
+            led_refresh_rate: getVal("led_refresh_rate", 20),
+            led_corner_gap: getVal("led_corner_gap", 0),
+            led_start_pos: document.getElementById("led_start_pos") ? document.getElementById("led_start_pos").value : "top_left",
+            led_direction: document.getElementById("led_direction") ? document.getElementById("led_direction").value : "clockwise",
+            offset_top: getVal("offset_top", 0),
+            offset_right: getVal("offset_right", 0),
+            offset_bottom: getVal("offset_bottom", 0),
+            offset_left: getVal("offset_left", 0),
+            led_refresh_native: document.getElementById("led_refresh_native") ? document.getElementById("led_refresh_native").checked : true
         };
 
         fetch("/api/config", {
@@ -112,14 +160,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 sync_offset_frames: parseInt(document.getElementById("sync_offset").value) || 0,
                 presets: currentPresets,
                 current_preset: document.getElementById("preset_select").value || "",
-                wled_ip: document.getElementById("wled_ip").value,
-                leds_top: parseInt(document.getElementById("leds_top").value) || 50,
-                leds_side: parseInt(document.getElementById("leds_side").value) || 30,
-                led_depth: parseInt(document.getElementById("led_depth").value) || 8,
-                led_smoothing: parseInt(document.getElementById("led_smoothing").value) || 65,
-                led_brightness: parseInt(document.getElementById("led_brightness").value) || 80,
-                led_refresh_rate: parseInt(document.getElementById("led_refresh_rate").value) || 20,
-                led_refresh_native: document.getElementById("led_refresh_native").checked
+                
+                // LED settings
+                wled_ip: document.getElementById("wled_ip") ? document.getElementById("wled_ip").value : "",
+                leds_top: getVal("leds_top", 50),
+                leds_side: getVal("leds_side", 30),
+                led_depth: getVal("led_depth", 15),
+                led_smoothing: getVal("led_smoothing", 30),
+                led_brightness_top: getVal("led_brightness_top", 100),
+                led_brightness_right: getVal("led_brightness_right", 100),
+                led_brightness_bottom: getVal("led_brightness_bottom", 100),
+                led_brightness_left: getVal("led_brightness_left", 100),
+                led_refresh_rate: getVal("led_refresh_rate", 20),
+                led_corner_gap: getVal("led_corner_gap", 0),
+                led_start_pos: document.getElementById("led_start_pos") ? document.getElementById("led_start_pos").value : "top_left",
+                led_direction: document.getElementById("led_direction") ? document.getElementById("led_direction").value : "clockwise",
+                offset_top: getVal("offset_top", 0),
+                offset_right: getVal("offset_right", 0),
+                offset_bottom: getVal("offset_bottom", 0),
+                offset_left: getVal("offset_left", 0),
+                led_refresh_native: document.getElementById("led_refresh_native") ? document.getElementById("led_refresh_native").checked : true,
+                disable_autocrop: document.getElementById("disable_autocrop") ? document.getElementById("disable_autocrop").checked : false
             };
 
             fetch("/api/config", {
@@ -145,17 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const evtSource = new EventSource("/api/stream");
     const consoleEl = document.getElementById("console");
     
-    function logToConsole(msg, type="info") {
-        if (consoleEl.textContent.includes("En attente de connexion")) {
-            consoleEl.innerHTML = "";
-        }
-        const div = document.createElement("div");
-        div.className = `log ${type}`;
-        const time = new Date().toLocaleTimeString();
-        div.textContent = `[${time}] ${msg}`;
-        consoleEl.appendChild(div);
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-    }
+
 
     const canvas = document.getElementById("ledSimulator");
     const ctx = canvas ? canvas.getContext("2d") : null;
@@ -167,6 +218,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const el = document.createElement("div");
             el.className = "log";
             el.textContent = `[INFO] ${data.message}`;
+            consoleEl.appendChild(el);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        } else if(data.type === "error") {
+            const el = document.createElement("div");
+            el.className = "log error";
+            el.textContent = `[ERREUR] ${data.message}`;
             consoleEl.appendChild(el);
             consoleEl.scrollTop = consoleEl.scrollHeight;
         } else if (data.type === "preset_changed") {
@@ -183,13 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("sync_offset").value = data.offset_frames;
             document.getElementById("sync_offset").disabled = false;
             
-            const btnSave = document.getElementById("btn_save");
-            if(btnSave) {
-                btnSave.disabled = false;
-                btnSave.style.opacity = 1;
-                btnSave.style.cursor = "pointer";
-                btnSave.textContent = "Sauvegarder la Calibration";
-            }
+            document.getElementById("sync_offset").disabled = false;
             
             if(currentPresets[data.combo] === undefined) {
                 currentPresets[data.combo] = data.offset_frames;
@@ -202,6 +253,9 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("status_offset").textContent = data.offset + " ms";
             document.getElementById("status_local_offset").textContent = Math.round(data.local_offset) + " ms";
             document.getElementById("status_action").textContent = data.action;
+            if(data.loop_time_ms !== undefined) {
+                document.getElementById("status_action").textContent += ` (${data.loop_time_ms}ms)`;
+            }
             if(document.getElementById("status_dropped") && data.dropped_frames !== undefined) {
                 document.getElementById("status_dropped").textContent = data.dropped_frames;
             }
@@ -221,8 +275,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const h = canvas.height;
         ctx.clearRect(0, 0, w, h);
         
-        const ledsTop = parseInt(document.getElementById("leds_top").value) || 50;
-        const ledsSide = parseInt(document.getElementById("leds_side").value) || 30;
+        const ledsTop = getVal("leds_top", 50);
+        const ledsSide = getVal("leds_side", 30);
         
         const totalTop = ledsTop;
         const totalRight = ledsSide;
@@ -385,6 +439,85 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // Logique de lien de luminosité
+    let isBrightnessLinked = true;
+    const lockBtn = document.getElementById("brightness_lock_btn");
+    const lockIcon = document.getElementById("brightness_lock_icon");
+    const lockText = document.getElementById("brightness_lock_text");
+    
+    if (lockBtn) {
+        lockBtn.addEventListener("click", () => {
+            isBrightnessLinked = !isBrightnessLinked;
+            if (isBrightnessLinked) {
+                lockIcon.innerText = "🔒";
+                lockText.innerText = "Liés";
+                lockBtn.style.background = "var(--primary)";
+            } else {
+                lockIcon.innerText = "🔓";
+                lockText.innerText = "Séparés";
+                lockBtn.style.background = "#555";
+            }
+        });
+        
+        const sides = ['top', 'right', 'bottom', 'left'];
+        
+        // Stocker la valeur précédente au moment du clic initial (mousedown/touchstart)
+        let previousValues = {};
+        
+        sides.forEach(side => {
+            const el = document.getElementById("led_brightness_" + side);
+            if(el) {
+                // On met à jour previousValues quand on commence à glisser
+                el.addEventListener("mousedown", () => { previousValues[side] = parseInt(el.value); });
+                el.addEventListener("touchstart", () => { previousValues[side] = parseInt(el.value); }, {passive: true});
+                
+                el.addEventListener("input", function() {
+                    const current = parseInt(this.value);
+                    const delta = current - (previousValues[side] || current);
+                    
+                    if (isBrightnessLinked && delta !== 0) {
+                        // Vérifier si le delta est applicable à TOUS les autres curseurs
+                        let max_delta = delta;
+                        for(const s of sides) {
+                            if (s !== side) {
+                                const targetEl = document.getElementById("led_brightness_" + s);
+                                if(targetEl) {
+                                    const initial = parseInt(targetEl.value);
+                                    if (delta > 0 && initial + delta > 100) {
+                                        max_delta = Math.min(max_delta, 100 - initial);
+                                    } else if (delta < 0 && initial + delta < 0) {
+                                        max_delta = Math.max(max_delta, -initial);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Si le delta max autorisé est différent du delta demandé, on doit "brider" le mouvement
+                        if (max_delta !== delta) {
+                            this.value = (previousValues[side] || current) + max_delta;
+                            document.getElementById("led_brightness_" + side + "_val").innerText = this.value + "%";
+                        }
+                        
+                        // Appliquer le delta max autorisé aux 3 autres
+                        for(const s of sides) {
+                            if (s !== side) {
+                                const targetEl = document.getElementById("led_brightness_" + s);
+                                if(targetEl) {
+                                    const initial = parseInt(targetEl.value);
+                                    targetEl.value = initial + max_delta;
+                                    document.getElementById("led_brightness_" + s + "_val").innerText = targetEl.value + "%";
+                                    previousValues[s] = parseInt(targetEl.value); // Mettre à jour la base
+                                }
+                            }
+                        }
+                    }
+                    
+                    previousValues[side] = parseInt(this.value); // Mettre à jour la base de ce curseur
+                });
+            }
+        });
+    }
+
     // Fermer proprement la connexion SSE quand on quitte la page (évite la limite de 6 connexions du navigateur)
     window.addEventListener('beforeunload', () => {
         if(evtSource) evtSource.close();
@@ -394,12 +527,12 @@ document.addEventListener("DOMContentLoaded", () => {
 // Reset values to safe defaults
 window.resetSliders = function() {
     if(document.getElementById("led_depth")) {
-        document.getElementById("led_depth").value = 8;
-        document.getElementById("led_depth_val").innerText = "8%";
+        document.getElementById("led_depth").value = 15;
+        document.getElementById("led_depth_val").innerText = "15%";
     }
     if(document.getElementById("led_smoothing")) {
-        document.getElementById("led_smoothing").value = 65;
-        document.getElementById("led_smoothing_val").innerText = "65%";
+        document.getElementById("led_smoothing").value = 30;
+        document.getElementById("led_smoothing_val").innerText = "30%";
     }
     if(document.getElementById("led_brightness")) {
         document.getElementById("led_brightness").value = 80;
@@ -407,7 +540,7 @@ window.resetSliders = function() {
     }
     if(document.getElementById("led_refresh_rate")) {
         document.getElementById("led_refresh_rate").value = 20;
-        document.getElementById("led_refresh_native").checked = false;
+        document.getElementById("led_refresh_native").checked = true;
         document.getElementById("led_refresh_rate_val").innerText = "20";
     }
 };

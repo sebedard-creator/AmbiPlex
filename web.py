@@ -3,9 +3,8 @@ import json
 import os
 import time
 import logging
-import logging
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -39,9 +38,22 @@ class ConfigModel(BaseModel):
     leds_side: int = 30
     led_depth: int = 15
     led_smoothing: int = 30
-    led_brightness: int = 80
+    led_brightness_top: int = 100
+    led_brightness_right: int = 100
+    led_brightness_bottom: int = 100
+    led_brightness_left: int = 100
     led_refresh_rate: int = 20
     led_refresh_native: bool = True
+    led_corner_gap: int = 0
+    led_start_pos: str = "top_left"
+    led_direction: str = "clockwise"
+    offset_top: int = 0
+    offset_right: int = 0
+    offset_bottom: int = 0
+    offset_left: int = 0
+
+
+    disable_autocrop: bool = False
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
@@ -104,15 +116,23 @@ async def background_sync_loop():
         sync_instance.combo_callback = combo_logger
         sync_instance.log_callback = sync_logger
 
-        sync_instance.connect()
-        sync_instance.start_websocket_listener()
-        await broadcast({"type": "info", "message": "Connecté au serveur Plex"})
+        while True:
+            try:
+                sync_instance.connect()
+                sync_instance.start_websocket_listener()
+                await broadcast({"type": "info", "message": "Connecté au serveur Plex"})
+                break
+            except Exception as e:
+                await broadcast({"type": "error", "message": f"Erreur Plex : {e} (Nouvelle tentative dans 5s...)"})
+                await asyncio.sleep(5)
     except Exception as e:
         await broadcast({"type": "error", "message": str(e)})
         return
 
     last_config_load = 0
+    next_frame_time = time.perf_counter()
     while True:
+        loop_start_time = time.perf_counter()
         try:
             # Reload config once per second to get fresh LED/IP settings without heavy I/O
             current_time = time.time()
@@ -132,8 +152,12 @@ async def background_sync_loop():
                     
                     try:
                         player_instance = SlavePlayer(headless=config.get("headless", True))
-                        player_instance.load_file(sync_instance.current_media_path, sync_instance.current_view_offset)
-                        sync_instance.local_player_offset = sync_instance.current_view_offset
+                        success = player_instance.load_file(sync_instance.current_media_path, sync_instance.current_view_offset)
+                        if success:
+                            sync_instance.local_player_offset = sync_instance.current_view_offset
+                        else:
+                            player_instance.quit()
+                            player_instance = None
                     except Exception as e:
                         logger.error(f"Impossible de créer le lecteur MPV : {e}")
                         player_instance = None
@@ -163,7 +187,8 @@ async def background_sync_loop():
                     "offset": sync_instance.current_view_offset,
                     "local_offset": sync_instance.local_player_offset,
                     "action": action if action else "SEEK",
-                    "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0
+                    "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
+                    "loop_time_ms": int((time.time() - loop_start_time) * 1000)
                 }
                 
                 # --- EXTRACTION LEDS ---
@@ -177,7 +202,14 @@ async def background_sync_loop():
                         data["colors"] = colors # Envoyer à l'UI pour la simulation
                         data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
             else:
-                if player_instance:
+                if player_instance and sync_instance.current_media_path is None:
+                    # L'utilisateur a quitté le film (retour au menu), on libère MPV pour éviter les crashs !
+                    try:
+                        player_instance.quit()
+                    except Exception:
+                        pass
+                    player_instance = None
+                elif player_instance:
                     player_instance.pause()
                     sync_instance.local_player_offset = player_instance.get_offset_ms()
                     
@@ -187,7 +219,8 @@ async def background_sync_loop():
                     "offset": sync_instance.current_view_offset,
                     "local_offset": sync_instance.local_player_offset,
                     "action": "WAIT",
-                    "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0
+                    "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
+                    "loop_time_ms": int((time.time() - loop_start_time) * 1000)
                 }
                 
                 # --- EXTRACTION LEDS MEME EN PAUSE ---
@@ -215,8 +248,17 @@ async def background_sync_loop():
             except Exception:
                 pass
                 
-        sleep_time = 1.0 / max(1, float(target_fps))
-        await asyncio.sleep(sleep_time)
+        frame_time = 1.0 / max(1, float(target_fps))
+        next_frame_time += frame_time
+        
+        now = time.perf_counter()
+        sleep_duration = next_frame_time - now
+        
+        if sleep_duration > 0:
+            await asyncio.sleep(sleep_duration)
+        else:
+            await asyncio.sleep(0.001)
+            next_frame_time = time.perf_counter()
 
 async def broadcast(data: dict):
     for q in clients:
@@ -227,28 +269,42 @@ async def startup_event():
     global sync_task
     sync_task = asyncio.create_task(background_sync_loop())
 
+from fastapi.responses import JSONResponse
+
 @app.get("/api/config")
 def get_config():
-    return load_config()
+    headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+    return JSONResponse(content=load_config(), headers=headers)
 
 @app.post("/api/config")
 async def update_config(config: ConfigModel):
-    save_config(config.model_dump())
+    try:
+        old_config = load_config()
+        new_config = config.model_dump()
+        save_config(new_config)
+    except Exception as e:
+        logger.error(f"Error saving config: {e}")
+        raise e
     
     global sync_instance
     global player_instance
     if sync_instance:
-        sync_offset_frames = int(config.model_dump().get("sync_offset_frames", 0))
+        sync_offset_frames = int(new_config.get("sync_offset_frames", 0))
         new_offset_ms = int(sync_offset_frames * (1000 / 24))
         
-        # Si l'offset change, on force un seek immédiat pour que l'utilisateur voie la différence tout de suite
+        # Si l'offset change, on force un seek immédiat
         if sync_instance.sync_offset_ms != new_offset_ms:
             sync_instance.sync_offset_ms = new_offset_ms
             if player_instance:
-                # Force le seek
                 player_instance.seek(sync_instance.current_view_offset)
                 sync_instance.local_player_offset = sync_instance.current_view_offset
                 sync_instance.last_seek_time = 0
+                
+        # Reconnecter à chaud si les identifiants ont changé
+        if (old_config.get("plex_url") != new_config.get("plex_url") or
+            old_config.get("plex_token") != new_config.get("plex_token") or
+            old_config.get("master_client") != new_config.get("master_client")):
+            sync_instance.reconnect(new_config.get("plex_url"), new_config.get("plex_token"), new_config.get("master_client"))
         
     return {"status": "success"}
 
