@@ -65,6 +65,24 @@ h2 {
 @media (max-width: 768px) {
     .grid {
         grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    body {
+        padding: 10px;
+    }
+    
+    .glass-container {
+        padding: 20px;
+    }
+    
+    .card {
+        padding: 16px;
+    }
+    
+    h1 {
+        font-size: 2rem;
+        margin-bottom: 20px;
     }
 }
 
@@ -243,4 +261,9 @@ h2 {
     visibility: visible;
     opacity: 1;
     transform: translateX(-50%) translateY(-5px);
+}
+
+canvas#ledSimulator {
+    max-width: 100%;
+    height: auto;
 }

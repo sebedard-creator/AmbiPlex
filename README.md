@@ -36,5 +36,9 @@ Un système Ambilight ultra-performant et 100% logiciel conçu pour se synchroni
 ## 🛡️ Sécurité & Confidentialité
 Aucun secret (Token Plex, IP locale) n'est stocké dans le code source. Toutes les données sensibles sont sauvegardées dans un fichier `config.json` local (qui est ignoré par Git).
 
+## 📸 Galerie
+![Détail de Configuration](screenshot3.png)
+![Résultat de la Synchronisation](screenshot4.png)
+
 ---
 *Conçu par Sébastien Bédard*

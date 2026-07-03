@@ -188,7 +188,7 @@ async def background_sync_loop():
                     "local_offset": sync_instance.local_player_offset,
                     "action": action if action else "SEEK",
                     "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
-                    "loop_time_ms": int((time.time() - loop_start_time) * 1000)
+                    "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
                 }
                 
                 # --- EXTRACTION LEDS ---
@@ -220,7 +220,7 @@ async def background_sync_loop():
                     "local_offset": sync_instance.local_player_offset,
                     "action": "WAIT",
                     "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
-                    "loop_time_ms": int((time.time() - loop_start_time) * 1000)
+                    "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
                 }
                 
                 # --- EXTRACTION LEDS MEME EN PAUSE ---

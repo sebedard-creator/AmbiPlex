@@ -129,7 +129,8 @@ document.addEventListener("DOMContentLoaded", () => {
             offset_right: getVal("offset_right", 0),
             offset_bottom: getVal("offset_bottom", 0),
             offset_left: getVal("offset_left", 0),
-            led_refresh_native: document.getElementById("led_refresh_native") ? document.getElementById("led_refresh_native").checked : true
+            led_refresh_native: document.getElementById("led_refresh_native") ? document.getElementById("led_refresh_native").checked : true,
+            disable_autocrop: document.getElementById("disable_autocrop") ? document.getElementById("disable_autocrop").checked : false
         };
 
         fetch("/api/config", {
