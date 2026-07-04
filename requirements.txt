@@ -6,3 +6,4 @@ Pillow
 python-mpv
 requests
 py7zr
+lz4

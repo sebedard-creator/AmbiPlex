@@ -12,6 +12,7 @@ import uvicorn
 from sync import PlexSynchronizer
 from player import SlavePlayer
 from led_engine import LedEngine
+from wled_reader import WledSubtitleReader
 
 app = FastAPI()
 
@@ -20,6 +21,7 @@ clients = [] # list of asyncio Queues for SSE
 sync_task = None
 sync_instance = None
 player_instance = None
+wled_reader_instance = None
 
 logger = logging.getLogger("WebUI")
 
@@ -69,8 +71,10 @@ async def background_sync_loop():
     global sync_instance
     global player_instance
     global led_engine_instance
+    global wled_reader_instance
     
     led_engine_instance = LedEngine()
+    wled_reader_instance = WledSubtitleReader()
     
     config = load_config()
     sync_offset_frames = int(config.get("sync_offset_frames", 0))
@@ -131,9 +135,13 @@ async def background_sync_loop():
 
     last_config_load = 0
     next_frame_time = time.perf_counter()
+    last_playing_state = False
+    
     while True:
         loop_start_time = time.perf_counter()
         try:
+            current_playing_state = sync_instance.is_playing
+            
             # Reload config once per second to get fresh LED/IP settings without heavy I/O
             current_time = time.time()
             if current_time - last_config_load > 1.0:
@@ -141,98 +149,170 @@ async def background_sync_loop():
                 last_config_load = current_time
 
             if sync_instance.is_playing:
-                # Application à MPV
-                if not player_instance or player_instance.current_file != sync_instance.current_media_path:
-                    # Nouveau fichier : On instancie ou recrée MPV (pour éviter les bugs de contexte OpenGL écran noir)
+                # --- PIVOT: VÉRIFICATION DU FICHIER WLEDSUB ---
+                expected_x = int(config.get("leds_top", 50))
+                expected_y = int(config.get("leds_side", 30))
+                
+                is_wledsub = False
+                if sync_instance.current_media_path:
+                    if wled_reader_instance.active_file != sync_instance.current_media_path:
+                        wled_reader_instance.close()
+                        
+                    was_active = wled_reader_instance.is_active()
+                    is_wledsub = wled_reader_instance.load_if_compatible(sync_instance.current_media_path, expected_x, expected_y)
+                    
+                    if is_wledsub and not was_active:
+                        await broadcast({"type": "info", "message": f"✅ WLEDSUB DÉTECTÉ ET IMPORTÉ EN RAM ({expected_x}x{expected_y})"})
+                        
+                if current_playing_state and not last_playing_state:
+                    mode = "WLEDSUB (0% CPU)" if is_wledsub else "MPV (Temps Réel)"
+                    await broadcast({"type": "info", "message": f"▶️ Lancement de l'extraction LED via {mode}"})
+                
+                if is_wledsub:
+                    # MODE ZERO CPU
                     if player_instance:
-                        try:
-                            player_instance.player.terminate()
-                        except Exception:
-                            pass
-                    
-                    try:
-                        player_instance = SlavePlayer(headless=config.get("headless", True))
-                        success = player_instance.load_file(sync_instance.current_media_path, sync_instance.current_view_offset)
-                        if success:
-                            sync_instance.local_player_offset = sync_instance.current_view_offset
-                        else:
-                            player_instance.quit()
-                            player_instance = None
-                    except Exception as e:
-                        logger.error(f"Impossible de créer le lecteur MPV : {e}")
+                        try: player_instance.quit()
+                        except: pass
                         player_instance = None
-                elif player_instance:
-                    # Mise à jour de l'offset local seulement s'il est valide
-                    current_mpv_offset = player_instance.get_offset_ms()
-                    if current_mpv_offset > 0:
-                        sync_instance.local_player_offset = current_mpv_offset
-
-                # On calcule l'action *après* avoir mis à jour l'offset
-                action = sync_instance.compute_chase_speed(sync_instance.local_player_offset)
-                
-                if player_instance:
-                    player_instance.play()
+                        
+                    sync_instance.local_player_offset = sync_instance.current_view_offset
                     
-                    if action:
-                        player_instance.set_speed(action)
-                    else:
-                        # Seek brutal
-                        player_instance.seek(sync_instance.current_view_offset)
-                        # On triche un peu l'offset local pour éviter une boucle de seek au prochain tick
-                        sync_instance.local_player_offset = sync_instance.current_view_offset
-                
-                data = {
-                    "type": "monitoring",
-                    "state": "playing",
-                    "offset": sync_instance.current_view_offset,
-                    "local_offset": sync_instance.local_player_offset,
-                    "action": action if action else "SEEK",
-                    "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
-                    "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
-                }
-                
-                # --- EXTRACTION LEDS ---
-                if player_instance:
-                    frame = player_instance.capture_frame()
-                    if frame is not None:
-                        colors = led_engine_instance.calculate_colors(frame, config)
-                        ip = config.get("wled_ip")
-                        if ip:
-                            led_engine_instance.send_ddp(ip, colors)
-                        data["colors"] = colors # Envoyer à l'UI pour la simulation
-                        data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
-            else:
-                if player_instance and sync_instance.current_media_path is None:
-                    # L'utilisateur a quitté le film (retour au menu), on libère MPV pour éviter les crashs !
-                    try:
-                        player_instance.quit()
-                    except Exception:
-                        pass
-                    player_instance = None
-                elif player_instance:
-                    player_instance.pause()
-                    sync_instance.local_player_offset = player_instance.get_offset_ms()
+                    data = {
+                        "type": "monitoring",
+                        "state": "playing (wledsub)",
+                        "offset": sync_instance.current_view_offset,
+                        "local_offset": sync_instance.local_player_offset,
+                        "action": "SYNC (0% CPU)",
+                        "dropped_frames": 0,
+                        "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
+                    }
                     
-                data = {
-                    "type": "monitoring",
-                    "state": "paused",
-                    "offset": sync_instance.current_view_offset,
-                    "local_offset": sync_instance.local_player_offset,
-                    "action": "WAIT",
-                    "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
-                    "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
-                }
-                
-                # --- EXTRACTION LEDS MEME EN PAUSE ---
-                if player_instance:
-                    frame = player_instance.capture_frame()
-                    if frame is not None:
-                        colors = led_engine_instance.calculate_colors(frame, config)
+                    # --- EXTRACTION LEDS DEPUIS MEMMAP ---
+                    raw_rgb565 = wled_reader_instance.get_colors_at_time(sync_instance.current_view_offset)
+                    if raw_rgb565 is not None:
+                        colors = led_engine_instance.process_prebaked_colors(raw_rgb565, config)
                         ip = config.get("wled_ip")
-                        if ip:
+                        if ip and colors:
                             led_engine_instance.send_ddp(ip, colors)
                         data["colors"] = colors
-                        data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
+                        data["crop_box"] = [0, 90]
+                else:
+                    # Application à MPV (Fallback)
+                    if not player_instance or player_instance.current_file != sync_instance.current_media_path:
+                        # Nouveau fichier : On instancie ou recrée MPV (pour éviter les bugs de contexte OpenGL écran noir)
+                        if player_instance:
+                            try:
+                                player_instance.player.terminate()
+                            except Exception:
+                                pass
+                        
+                        try:
+                            player_instance = SlavePlayer(headless=config.get("headless", True))
+                            success = player_instance.load_file(sync_instance.current_media_path, sync_instance.current_view_offset)
+                            if success:
+                                sync_instance.local_player_offset = sync_instance.current_view_offset
+                            else:
+                                player_instance.quit()
+                                player_instance = None
+                        except Exception as e:
+                            logger.error(f"Impossible de créer le lecteur MPV : {e}")
+                            player_instance = None
+                    elif player_instance:
+                        # Mise à jour de l'offset local seulement s'il est valide
+                        current_mpv_offset = player_instance.get_offset_ms()
+                        if current_mpv_offset > 0:
+                            sync_instance.local_player_offset = current_mpv_offset
+    
+                    # On calcule l'action *après* avoir mis à jour l'offset
+                    action = sync_instance.compute_chase_speed(sync_instance.local_player_offset)
+                    
+                    if player_instance:
+                        player_instance.play()
+                        
+                        if action:
+                            player_instance.set_speed(action)
+                        else:
+                            # Seek brutal
+                            player_instance.seek(sync_instance.current_view_offset)
+                            # On triche un peu l'offset local pour éviter une boucle de seek au prochain tick
+                            sync_instance.local_player_offset = sync_instance.current_view_offset
+                    
+                    data = {
+                        "type": "monitoring",
+                        "state": "playing",
+                        "offset": sync_instance.current_view_offset,
+                        "local_offset": sync_instance.local_player_offset,
+                        "action": action if action else "SEEK",
+                        "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
+                        "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
+                    }
+                    
+                    # --- EXTRACTION LEDS MPV ---
+                    if player_instance:
+                        frame = player_instance.capture_frame()
+                        if frame is not None:
+                            colors = led_engine_instance.calculate_colors(frame, config)
+                            ip = config.get("wled_ip")
+                            if ip:
+                                led_engine_instance.send_ddp(ip, colors)
+                            data["colors"] = colors # Envoyer à l'UI pour la simulation
+                            data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
+            else:
+                if sync_instance.current_media_path is None:
+                    # L'utilisateur a quitté le film (retour au menu), on libère tout
+                    if player_instance:
+                        try: player_instance.quit()
+                        except: pass
+                        player_instance = None
+                    if wled_reader_instance:
+                        wled_reader_instance.close()
+                elif wled_reader_instance and wled_reader_instance.is_active():
+                    # Pause en mode WLEDSUB
+                    sync_instance.local_player_offset = sync_instance.current_view_offset
+                    data = {
+                        "type": "monitoring",
+                        "state": "paused (wledsub)",
+                        "offset": sync_instance.current_view_offset,
+                        "local_offset": sync_instance.local_player_offset,
+                        "action": "WAIT",
+                        "dropped_frames": 0,
+                        "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
+                    }
+                    raw_rgb565 = wled_reader_instance.get_colors_at_time(sync_instance.current_view_offset)
+                    if raw_rgb565 is not None:
+                        colors = led_engine_instance.process_prebaked_colors(raw_rgb565, config)
+                        ip = config.get("wled_ip")
+                        if ip and colors:
+                            led_engine_instance.send_ddp(ip, colors)
+                        data["colors"] = colors
+                        data["crop_box"] = [0, 90]
+                else:
+                    # Pause en mode MPV
+                    if player_instance:
+                        player_instance.pause()
+                        sync_instance.local_player_offset = player_instance.get_offset_ms()
+                        
+                    data = {
+                        "type": "monitoring",
+                        "state": "paused",
+                        "offset": sync_instance.current_view_offset,
+                        "local_offset": sync_instance.local_player_offset,
+                        "action": "WAIT",
+                        "dropped_frames": player_instance.get_dropped_frames() if player_instance else 0,
+                        "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
+                    }
+                    
+                    if player_instance:
+                        frame = player_instance.capture_frame()
+                        if frame is not None:
+                            colors = led_engine_instance.calculate_colors(frame, config)
+                            ip = config.get("wled_ip")
+                            if ip:
+                                led_engine_instance.send_ddp(ip, colors)
+                            data["colors"] = colors
+                            data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
+            
+            last_playing_state = current_playing_state
             await broadcast(data)
         except Exception as e:
             import traceback

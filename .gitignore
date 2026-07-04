@@ -39,3 +39,7 @@ Thumbs.db
 libmpv-2.dll
 *.mp4
 *.mkv
+
+# WLED Subtitles & Cache
+cache/
+*.wledsub.lz4

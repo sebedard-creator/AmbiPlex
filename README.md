@@ -7,7 +7,8 @@ Un système Ambilight ultra-performant et 100% logiciel conçu pour se synchroni
 ## ✨ Fonctionnalités
 - **Man-in-the-Middle Plex** : Écoute les évènements de lecture de Plex via Websocket et synchronise une instance invisible (headless) de `MPV` en arrière-plan.
 - **Auto-Crop Asymétrique (Anti-Sous-titres)** : Détecte mathématiquement les bandes noires (Letterbox 2.35:1) en temps réel. Analyse uniquement la bande supérieure pour ignorer les sous-titres, garantissant une stabilité visuelle absolue.
-- **Downscaling Extrême** : Utilise l'API `screenshot_raw` de `libmpv` et `Pillow` pour réduire l'image à 160x90 pixels avant l'extraction des couleurs, libérant le CPU.
+- **Downscaling Extrême (Fallback)** : Utilise l'API `screenshot_raw` de `libmpv` et `Pillow` pour réduire l'image en temps réel avant extraction si le format l'exige.
+- **Mode Zéro CPU (WLED Subtitles)** : Décompresse "à la volée" (`lz4`) des fichiers `.wledsub.lz4` pré-calculés, cartographie la mémoire (`numpy.memmap`) et court-circuite complètement le lecteur vidéo. Baisse drastiquement la consommation CPU.
 - **Moteur LED Numpy** : Calcule la moyenne des couleurs (RGB) des bordures de l'image en quelques millisecondes via *slicing* matriciel.
 - **Protocole DDP (UDP)** : Transmet les données à WLED via le protocole *Distributed Display Protocol* à plus de 20 FPS pour une latence nulle.
 - **Interface Web Moderne** : Configuration en temps réel (FastAPI + Vanilla JS Glassmorphism) avec simulateur LED interactif.
@@ -30,6 +31,12 @@ Un système Ambilight ultra-performant et 100% logiciel conçu pour se synchroni
 3. Saisissez l'adresse IP de votre contrôleur WLED.
 4. Ajustez le nombre de LEDs pour chaque bordure (Haut, Bas, Gauche, Droite).
 5. Lancez un film sur Plex : les couleurs s'afficheront instantanément dans le simulateur web et sur votre mur !
+
+## 🎬 Mode Zéro CPU (WLED Subtitles)
+Pour les plateformes légères (Raspberry Pi, vieux PC), vous pouvez pré-générer les couleurs d'un film pour supprimer toute charge CPU pendant la lecture :
+1. Utilisez l'outil intégré : `python bake.py "Chemin\Vers\Le\Film.mkv" --leds-x 64 --leds-y 36`
+2. Un fichier ultra-léger `.wledsub.lz4` sera créé à côté de la vidéo.
+3. À la prochaine lecture, AmbiPlex basculera automatiquement en mode Zéro CPU !
 
 ![Simulateur LED](screenshot2.png)
 

@@ -180,6 +180,9 @@ class LedEngine:
                     color = np.array([0,0,0])
                 left_colors.append(color)
 
+        return self._apply_routing(top_colors, right_colors, bottom_colors, left_colors, config)
+
+    def _apply_routing(self, top_colors, right_colors, bottom_colors, left_colors, config):
         # Routage et Décalage
         def apply_shift(arr, offset):
             if offset == 0 or len(arr) == 0:
@@ -224,14 +227,48 @@ class LedEngine:
         target_colors = np.array(colors, dtype=np.float32)
         
         # Smoothing (Lissage temporel)
+        cfg_smooth = config.get("led_smoothing")
+        smoothing = float(cfg_smooth if cfg_smooth is not None else 50) / 100.0
+        
         if self.last_colors is not None and len(self.last_colors) == len(target_colors):
-            # smoothing=1.0 signifie figé, smoothing=0.0 signifie immédiat
-            # Mais souvent le user le voit comme 100% = très lisse, 0% = brusque.
-            alpha = 1.0 - (smoothing * 0.9) # Empêche d'atteindre 1.0 qui gèlerait l'image
+            alpha = 1.0 - (smoothing * 0.9)
             target_colors = self.last_colors * (1.0 - alpha) + target_colors * alpha
             
         self.last_colors = target_colors
         return np.clip(target_colors, 0, 255).astype(np.uint8).tolist()
+
+    def process_prebaked_colors(self, rgb565_array, config):
+        """
+        Prend un tableau RGB565 (uint16) brut extrait du fichier .wledsub,
+        le convertit en RGB888, le découpe en 4 zones et applique le routage dynamique.
+        """
+        cfg_top = config.get("leds_top")
+        leds_top = int(cfg_top if cfg_top is not None else 50)
+        
+        cfg_side = config.get("leds_side")
+        leds_side = int(cfg_side if cfg_side is not None else 30)
+        
+        expected_len = leds_top * 2 + leds_side * 2
+        if len(rgb565_array) != expected_len:
+            return [] # Incompatible
+            
+        # Conversion rapide Numpy RGB565 -> RGB888
+        r = ((rgb565_array >> 11) & 0x1F) << 3
+        g = ((rgb565_array >> 5) & 0x3F) << 2
+        b = (rgb565_array & 0x1F) << 3
+        
+        rgb888_array = np.column_stack((r, g, b))
+        
+        idx = 0
+        top_colors = list(rgb888_array[idx : idx + leds_top])
+        idx += leds_top
+        right_colors = list(rgb888_array[idx : idx + leds_side])
+        idx += leds_side
+        bottom_colors = list(rgb888_array[idx : idx + leds_top])
+        idx += leds_top
+        left_colors = list(rgb888_array[idx : idx + leds_side])
+        
+        return self._apply_routing(top_colors, right_colors, bottom_colors, left_colors, config)
 
     def send_ddp(self, ip, colors):
         """Envoie les couleurs en UDP via le protocole DDP (WLED)"""

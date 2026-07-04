@@ -249,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
         } else if(data.type === "monitoring") {
             document.getElementById("status_state").textContent = data.state.toUpperCase();
-            document.getElementById("status_state").className = "badge " + (data.state === "playing" ? "playing" : "paused");
+            document.getElementById("status_state").className = "badge " + (data.state.includes("playing") ? "playing" : "paused");
             
             document.getElementById("status_offset").textContent = data.offset + " ms";
             document.getElementById("status_local_offset").textContent = Math.round(data.local_offset) + " ms";

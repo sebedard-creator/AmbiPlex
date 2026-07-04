@@ -93,4 +93,12 @@ Toutes les modifications apport√©es au projet "AmbiPlex" sont document√©es ici, 
  -   * * C o n f i g u r a t i o n   P l e x * *   :   S a u v e g a r d e   i n d i v i d u e l l e   d e   l ' o f f s e t   d e   s y n c h r o n i s a t i o n   p o u r   c h a q u e   c o m b i n a i s o n   C o d e c / R È s o l u t i o n / F r a m e r a t e .   L e   b a c k e n d   ( v i a   \ w e b . p y \ )   d È t e c t e   l e   p r o f i l   a u   l a n c e m e n t   d ' u n   m È d i a   e t   r e s t a u r e   l ' o f f s e t   e x a c t   a u t o m a t i q u e m e n t   d e p u i s   l e   d i c t i o n n a i r e   d u   \ c o n f i g . j s o n \ .  
  -   * * C o r r e c t i o n   d e   R a t i o   P h y s i q u e * *   :   \ l e d _ e n g i n e . p y \   p r È s e r v e   l ' È c h e l l e   v e r t i c a l e   p h y s i q u e   d e   l a   T V   ‡   1 0 0 %   l o r s   d e s   f i l m s   e n   L e t t e r b o x   p o u r   È v i t e r   l e   d È c a l a g e   ( d È c a l e m e n t ) .   L e s   r u b a n s   G a u c h e   e t   D r o i t e   p r o j e t t e n t   d È s o r m a i s   u n e   c o u l e u r   n o i r e   p u r e   l o r s q u ' i l s   s o n t   p o s i t i o n n È s   e n   f a c e   d e s   b a n d e s   n o i r e s   ( A u t o - C r o p   a s y m È t r i q u e   p a r f a i t ) .  
  -   * * A n t i - D e t t e   T e c h n i q u e * *   :   S u p p r e s s i o n   d e s   t e s t s   ( P y t h o n   s c r i p t s ,   l o g s   t e m p o r a i r e s )   e t   d u   c o d e   o r p h e l i n   d e s   M a r g e s   P h y s i q u e s .  
- 
+ ## [Phase 6] - Zero CPU Mode (WLED Subtitles JIT)
+- **Architecture**: Int√©gration d'un syst√®me de sous-titres visuels .wledsub.lz4 g√©n√©r√© en amont par FFmpeg pour supprimer l'utilisation CPU sur le Raspberry Pi / serveur local.
+- **wled_reader.py**: Cr√©ation du module de d√©compression JIT via l'algorithme lz4 et mappage direct en RAM avec 
+umpy.memmap.
+- **web.py**: D√©tection automatique des fichiers compatibles. Mode "Z√©ro CPU" activ√© (court-circuitage total de l'instance MPV).
+- **led_engine.py**: Refactorisation pour accepter les tableaux de couleurs RGB565 pr√©-calcul√©s, en conservant l'application de la luminosit√© et du lissage en temps r√©el.
+- **Interface UI**: Affichage dynamique (SSE) de l'activation du mode (WLEDSUB) au lieu du mode MPV.
+- **D√©pendances**: Ajout de lz4 dans le equirements.txt.
+- **Git**: Exclusion du dossier cache/ et des fichiers *.wledsub.lz4.
