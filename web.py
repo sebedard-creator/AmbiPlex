@@ -435,7 +435,11 @@ def _browse_file():
 async def browse_file():
     loop = asyncio.get_running_loop()
     file_path = await loop.run_in_executor(None, _browse_file)
-    return {"path": file_path}
+    exists = False
+    if file_path:
+        wled_path = os.path.splitext(file_path)[0] + ".wledsub.lz4"
+        exists = os.path.exists(wled_path)
+    return {"path": file_path, "exists": exists}
 
 encoder_process = None
 

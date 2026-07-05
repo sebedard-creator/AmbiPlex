@@ -108,12 +108,23 @@ document.addEventListener("DOMContentLoaded", () => {
                     videoPathInput.value = filename + " sélectionné";
                     videoPathInput.dataset.fullPath = data.path; // Store full path for the backend
                     
-                    // Visual feedback
-                    videoPathInput.style.borderColor = "#10b981"; // Green accent
-                    videoPathInput.style.color = "#10b981";
-                    
-                    btnEncode.disabled = false;
-                    btnEncode.textContent = "Lancer l'Encodage";
+                    if (data.exists) {
+                        // Visual feedback for existing file
+                        videoPathInput.value = filename + " (Fichier WLEDSUB existant !)";
+                        videoPathInput.style.borderColor = "#fbbf24"; // Yellow alert
+                        videoPathInput.style.color = "#fbbf24";
+                        
+                        btnEncode.disabled = false;
+                        btnEncode.textContent = "Écraser (Ré-encoder)";
+                    } else {
+                        // Visual feedback for new file
+                        videoPathInput.value = filename + " sélectionné";
+                        videoPathInput.style.borderColor = "#10b981"; // Green accent
+                        videoPathInput.style.color = "#10b981";
+                        
+                        btnEncode.disabled = false;
+                        btnEncode.textContent = "Lancer l'Encodage";
+                    }
                 }
             })
             .catch(err => {
