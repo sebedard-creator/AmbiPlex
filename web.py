@@ -266,6 +266,15 @@ async def background_sync_loop():
                         player_instance = None
                     if wled_reader_instance:
                         wled_reader_instance.close()
+                    data = {
+                        "type": "monitoring",
+                        "state": "stopped",
+                        "offset": 0,
+                        "local_offset": 0,
+                        "action": "WAIT",
+                        "dropped_frames": 0,
+                        "loop_time_ms": int((time.perf_counter() - loop_start_time) * 1000)
+                    }
                 elif wled_reader_instance and wled_reader_instance.is_active():
                     # Pause en mode WLEDSUB
                     sync_instance.local_player_offset = sync_instance.current_view_offset
@@ -393,6 +402,99 @@ if not os.path.exists("static"):
     os.makedirs("static")
     
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/encoder", response_class=HTMLResponse)
+def read_encoder():
+    with open("static/encoder.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+import subprocess
+
+def _browse_file():
+    ps_script = """
+    Add-Type -AssemblyName System.Windows.Forms
+    $f = New-Object System.Windows.Forms.OpenFileDialog
+    $f.Filter = "Fichiers Video (*.mkv;*.mp4;*.avi)|*.mkv;*.mp4;*.avi|Tous les fichiers (*.*)|*.*"
+    $f.Title = "Sélectionnez un fichier vidéo"
+    
+    $form = New-Object System.Windows.Forms.Form
+    $form.TopMost = $true
+    
+    if ($f.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
+        Write-Output $f.FileName
+    }
+    """
+    try:
+        result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True)
+        return result.stdout.strip()
+    except Exception as e:
+        print(f"Erreur dialog: {e}")
+        return ""
+
+@app.post("/api/encoder/browse")
+async def browse_file():
+    loop = asyncio.get_running_loop()
+    file_path = await loop.run_in_executor(None, _browse_file)
+    return {"path": file_path}
+
+encoder_process = None
+
+class EncoderConfig(BaseModel):
+    video_path: str
+    leds_x: int
+    leds_y: int
+    depth: int
+    threads: int
+
+@app.post("/api/encoder/start")
+async def start_encoder(config: EncoderConfig):
+    global encoder_process
+    if encoder_process and encoder_process.returncode is None:
+        return {"status": "error", "message": "Un encodage est déjà en cours."}
+    
+    try:
+        import sys
+        import os
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        
+        encoder_process = await asyncio.create_subprocess_exec(
+            sys.executable, "bake.py", config.video_path,
+            "--leds-x", str(config.leds_x),
+            "--leds-y", str(config.leds_y),
+            "--depth", str(config.depth),
+            "--threads", str(config.threads),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env=env
+        )
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/encoder/stream")
+async def encoder_stream(request: Request):
+    global encoder_process
+    if not encoder_process:
+        return {"status": "error", "message": "Aucun processus en cours."}
+        
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                line = await encoder_process.stdout.read(64)
+                if not line:
+                    rc = await encoder_process.wait()
+                    yield f"data: {json.dumps({'type': 'done', 'message': f'Terminé'})}\n\n"
+                    break
+                
+                text = line.decode('utf-8', errors='replace')
+                yield f"data: {json.dumps({'type': 'log', 'message': text})}\n\n"
+        except Exception as e:
+            pass
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():

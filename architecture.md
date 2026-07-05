@@ -14,14 +14,16 @@ Le système agit en "Man-in-the-Middle" : il écoute les évènements de lecture
 
 ## 3. Structure des Dossiers et Fichiers Clés
 * `/start.bat` / `/stop.bat` : Scripts de lancement de l'application sous Windows (Virtual Env).
-* `/web.py` : Serveur FastAPI, point d'entrée principal. Maintient la boucle asynchrone `while True` (blindée contre les déconnexions réseau) qui coordonne les modules. Gère le redémarrage à chaud des connexions si les paramètres changent.
-* `/player.py` : Classe `SlavePlayer` encapsulant `libmpv`. Gère les chargements de médias locaux, les sauts (seek) initiaux, l'ajustement dynamique de la vitesse (`set_speed`) pour la synchronisation douce, et l'extraction `screenshot_raw`.
-* `/sync.py` : Classe `PlexSynchronizer`. Maintient la websocket avec le serveur Plex pour capter les statuts de lecture du `master_client`. Dispose d'une méthode `reconnect()` pour le rechargement à chaud. Calcule la `chase_speed` (Synchronisation Proportionnelle) au lieu de forcer des seeks continus.
-* `/led_engine.py` : Classe `LedEngine`. Cerveau mathématique (Numpy) qui détecte automatiquement les bandes noires (Auto-Crop asymétrique), conserve l'échelle verticale physique pour les rubans de côté, découpe l'image en 4 segments matériels (Top, Right, Bottom, Left), calcule la moyenne des couleurs, applique le lissage temporel, et envoie les paquets DDP. Gère de manière sécurisée les valeurs extrêmes ("Falsy" = 0%).
-* `/config.json` : Fichier de persistance des paramètres utilisateurs modifiés via l'UI.
-* `/static/` : Interface utilisateur frontend (index.html, app.js, styles).
+* `/web.py` : Serveur FastAPI, point d'entrée principal. Maintient la boucle asynchrone `while True` (blindée contre les déconnexions réseau) qui coordonne les modules. Héberge également les routes Web et SSE de l'encodeur WLED Subtitles.
+* `/player.py` : Classe `SlavePlayer` encapsulant `libmpv`. Agit en tant que fallback de lecture en temps réel si aucun métadonnée n'est pré-calculée.
+* `/wled_reader.py` : Lecteur JIT. Décompresse les fichiers `.wledsub.lz4` à la volée vers le cache, puis les mappe virtuellement en mémoire RAM via `numpy.memmap`, permettant un mode de lecture avec littéralement Zéro CPU en court-circuitant le lecteur MPV complet.
+* `/bake.py` : Outil CLI/Backend FFmpeg appelé par l'UI web pour pré-calculer les couleurs vidéo et générer les fichiers métadonnées de sous-titres visuels.
+* `/sync.py` : Classe `PlexSynchronizer`. Écoute Plex et calcule l'offset pour la synchronisation proportionnelle.
+* `/led_engine.py` : Classe `LedEngine`. Cerveau mathématique (Numpy) détectant les bandes noires et applicant l'Auto-Crop asymétrique. Gère l'envoi des paquets UDP DDP.
+* `/config.json` : Fichier de persistance des paramètres.
+* `/static/` : Interface utilisateur frontend (Dashboard, Encodeur, Simulateur LED).
 * `/changelog.md` : Journal chronologique des avancées.
-* `/LED_Strip_Master_Prompt.md` : Cerveau de la documentation matérielle et objectifs projet.
+* `/handoff.md` : Bilan quotidien de la session en cours.
 
 ## 4. Spécifications Matérielles
 * **Cible** : QuinLED Dig-Uno V3 (ESP32) avec module Ethernet.

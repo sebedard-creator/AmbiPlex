@@ -61,20 +61,27 @@ class WledSubtitleReader:
                 raw_path = os.path.join(self.cache_dir, "active_movie.wledsub_raw")
                 logger.info(f"Décompression JIT LZ4 vers {raw_path}...")
                 
+                # Nombre d'éléments par frame (1 element uint16 par LED)
+                frame_elements = self.leds_x * 2 + self.leds_y * 2
+                
                 with open(raw_path, 'wb') as raw_file:
                     raw_file.write(f.read())
                     
-                # Mapping Memmap
-                # Le format RGB565 utilise 1 tableau d'entiers 16 bits par frame
-                # Nombre d'éléments par frame (1 element uint16 par LED)
-                frame_elements = self.leds_x * 2 + self.leds_y * 2
-                self.memmap_array = np.memmap(raw_path, dtype=np.uint16, mode='r', shape=(self.total_frames, frame_elements))
-                self.active_file = video_path
-                logger.info("Extraction et Memmap terminés avec succès.")
-                return True
+            # Calculate actual frames to avoid WinError 8 if FFmpeg extracted fewer frames than the theoretical header value
+            file_size = os.path.getsize(raw_path)
+            actual_frames = file_size // (frame_elements * 2)
+            self.total_frames = actual_frames
+            
+            # Mapper le cache en mémoire (0 RAM utilisée avant accès)
+            self.memmap_array = np.memmap(raw_path, dtype=np.uint16, mode='r', shape=(self.total_frames, frame_elements))
+            
+            self.active_file = video_path
+            logger.info(f"Fichier WLEDSUB LZ4 chargé avec succès : {self.total_frames} images")
+            return True
                 
         except Exception as e:
-            logger.error(f"Erreur lors du chargement de {wled_path}: {e}")
+            import traceback
+            logger.error(f"Erreur lors du chargement de {wled_path}: {e}\n{traceback.format_exc()}")
             self.close()
             return False
             

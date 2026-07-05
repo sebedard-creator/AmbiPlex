@@ -166,7 +166,7 @@ def process_frame(frame, crop_state, leds_x, leds_y, depth=8):
     # Retourne exactement 480 * 2 = 960 octets
     return rgb565.tobytes()
 
-def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_y, depth, use_advanced_tonemap=True):
+def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_y, depth, threads, use_advanced_tonemap=True):
     # L'astuce majeure de performance :
     # On scale d'abord l'image 4K HDR à 160x90.
     # FFmpeg applique ensuite le ToneMapping complexe uniquement sur cette image minuscule.
@@ -179,6 +179,7 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
     cmd = [
         ffmpeg_path,
         "-hwaccel", "auto",
+        "-threads", str(threads),
         "-i", video_path,
         "-vf", vf_filter,
         "-f", "image2pipe",
@@ -206,10 +207,10 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
                 if i == 0 and (not raw_data or len(raw_data) != frame_size):
                     process.terminate()
                     if use_advanced_tonemap:
-                        print("\n⚠️ Erreur de filtre avancé (zscale). Tentative de fallback basique...")
+                        print("\n⚠️ Erreur de filtre avancé (zscale). Tentative de fallback basique...", flush=True)
                         return False # Signale l'échec pour lancer le fallback
                     else:
-                        print("\n❌ Erreur fatale: Impossible d'extraire la vidéo avec FFmpeg.")
+                        print("\n❌ Erreur fatale: Impossible d'extraire la vidéo avec FFmpeg.", flush=True)
                         sys.exit(1)
                 
                 if not raw_data or len(raw_data) != frame_size:
@@ -224,14 +225,14 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
                     elapsed = time.time() - start_time
                     progress = (i / total_frames) * 100
                     fps_scan = i / elapsed if elapsed > 0 else 0
-                    print(f"\rProgression: {progress:.2f}% ({i}/{total_frames}) - Vitesse: {fps_scan:.1f} fps", end="")
+                    print(f"\rProgression: {progress:.2f}% ({i}/{total_frames}) - Vitesse: {fps_scan:.1f} fps", end="", flush=True)
                     
-        print(f"\n✅ Terminé avec succès en {time.time() - start_time:.1f} secondes ! ({i} images traitées)")
+        print(f"\n✅ Terminé avec succès en {time.time() - start_time:.1f} secondes ! ({i} images traitées)", flush=True)
         process.terminate()
         return True
         
     except KeyboardInterrupt:
-        print("\n\n⚠️ Scan annulé par l'utilisateur.")
+        print("\n\n⚠️ Scan annulé par l'utilisateur.", flush=True)
         process.terminate()
         if os.path.exists(out_path):
             os.remove(out_path)
@@ -243,6 +244,7 @@ def main():
     parser.add_argument("--leds-x", type=int, required=True, help="Nombre de LEDs sur la largeur (ex: 64)")
     parser.add_argument("--leds-y", type=int, required=True, help="Nombre de LEDs sur la hauteur (ex: 36)")
     parser.add_argument("--depth", type=int, default=8, help="Profondeur de la zone de scan en pourcentage (défaut: 8)")
+    parser.add_argument("--threads", type=int, default=0, help="Nombre de threads FFmpeg (0 = auto, 1 = faible usage CPU)")
     args = parser.parse_args()
 
     video_path = args.video_path
@@ -269,13 +271,14 @@ def main():
     print(f"Trâmes  : {total_frames} images à extraire")
     
     out_path = os.path.splitext(video_path)[0] + ".wledsub.lz4"
-    print(f"Sortie  : {out_path}")
-    print(f"Setup   : {args.leds_x}x{args.leds_y} ({args.leds_x*2 + args.leds_y*2} LEDs) | Profondeur: {args.depth}%")
-    print("Lancement du scan... (Ctrl+C pour annuler)")
+    print(f"Sortie  : {out_path}", flush=True)
+    print(f"Setup   : {args.leds_x}x{args.leds_y} ({args.leds_x*2 + args.leds_y*2} LEDs) | Profondeur: {args.depth}%", flush=True)
+    print(f"CPU     : {args.threads if args.threads > 0 else 'Illimité (Auto)'} Threads", flush=True)
+    print("Lancement du scan... (Ctrl+C pour annuler)", flush=True)
 
-    success = run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, args.leds_x, args.leds_y, args.depth, use_advanced_tonemap=True)
+    success = run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, args.leds_x, args.leds_y, args.depth, args.threads, use_advanced_tonemap=True)
     if not success:
-        run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, args.leds_x, args.leds_y, args.depth, use_advanced_tonemap=False)
+        run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, args.leds_x, args.leds_y, args.depth, args.threads, use_advanced_tonemap=False)
 
 if __name__ == "__main__":
     main()

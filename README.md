@@ -1,51 +1,55 @@
 # AmbiPlex
 
-![Interface AmbiPlex](screenshot1.png)
+![AmbiPlex Interface](screenshot1.png)
 
-Un système Ambilight ultra-performant et 100% logiciel conçu pour se synchroniser avec le lecteur vidéo **Plex** et piloter un ruban LED matériel (via **WLED / QuinLED ESP32**) sur un réseau local.
+*Note: The user interface and internal logs of this software are in French.*
 
-## ✨ Fonctionnalités
-- **Man-in-the-Middle Plex** : Écoute les évènements de lecture de Plex via Websocket et synchronise une instance invisible (headless) de `MPV` en arrière-plan.
-- **Auto-Crop Asymétrique (Anti-Sous-titres)** : Détecte mathématiquement les bandes noires (Letterbox 2.35:1) en temps réel. Analyse uniquement la bande supérieure pour ignorer les sous-titres, garantissant une stabilité visuelle absolue.
-- **Downscaling Extrême (Fallback)** : Utilise l'API `screenshot_raw` de `libmpv` et `Pillow` pour réduire l'image en temps réel avant extraction si le format l'exige.
-- **Mode Zéro CPU (WLED Subtitles)** : Décompresse "à la volée" (`lz4`) des fichiers `.wledsub.lz4` pré-calculés, cartographie la mémoire (`numpy.memmap`) et court-circuite complètement le lecteur vidéo. Baisse drastiquement la consommation CPU.
-- **Moteur LED Numpy** : Calcule la moyenne des couleurs (RGB) des bordures de l'image en quelques millisecondes via *slicing* matriciel.
-- **Protocole DDP (UDP)** : Transmet les données à WLED via le protocole *Distributed Display Protocol* à plus de 20 FPS pour une latence nulle.
-- **Interface Web Moderne** : Configuration en temps réel (FastAPI + Vanilla JS Glassmorphism) avec simulateur LED interactif.
+An ultra-high-performance, 100% software-based Ambilight system designed to synchronize with the **Plex** video player and drive hardware LED strips (via **WLED / QuinLED ESP32**) on a local network.
 
-## ⚙️ Prérequis Matériels
-- Un serveur Plex et un client Plex local (ex: Apple TV, Nvidia Shield, Smart TV).
-- Un contrôleur LED sous WLED (Recommandé : **QuinLED Dig-Uno** avec Ethernet Hat).
-- Un ruban LED adressable (ex: **WS2812B** 60 leds/m).
+## ✨ Features
+- **Plex Man-in-the-Middle**: Listens to Plex playback events via Websocket and synchronizes an invisible (headless) `MPV` instance in the background.
+- **Asymmetrical Auto-Crop (Anti-Subtitles)**: Mathematically detects black bars (2.35:1 Letterbox) in real time. Analyzes only the top bar to ignore subtitles, ensuring absolute visual stability.
+- **Extreme Downscaling (Fallback)**: Uses `libmpv`'s `screenshot_raw` API and `Pillow` to reduce the image size in real time before extraction if the format requires it.
+- **Zero CPU Mode (WLED Subtitles)**: Decompresses pre-calculated `.wledsub.lz4` files on the fly, maps them to memory (`numpy.memmap`), and completely bypasses the video player. Drastically reduces CPU consumption.
+- **Numpy LED Engine**: Calculates the average colors (RGB) of the image borders in milliseconds using matrix slicing.
+- **DDP Protocol (UDP)**: Transmits data to WLED via the *Distributed Display Protocol* at over 20 FPS for zero latency.
+- **Modern Web Interface**: Real-time configuration (FastAPI + Vanilla JS Glassmorphism) with an interactive LED simulator.
+- **WLED Subtitles Web Encoder**: Built-in web tool to extract WLED metadata from any video file using FFmpeg, avoiding CPU usage during playback.
+
+## ⚙️ Hardware Requirements
+- A Plex server and a local Plex client (e.g., Apple TV, Nvidia Shield, Smart TV).
+- A WLED-compatible LED controller (Recommended: **QuinLED Dig-Uno** with Ethernet Hat).
+- An addressable LED strip (e.g., **WS2812B** 60 leds/m).
 
 ## 🚀 Installation
-1. Clonez ce dépôt.
-2. Créez un environnement virtuel Python (`python -m venv venv`).
-3. Installez les dépendances (`pip install -r requirements.txt` si disponible, ou installez manuellement `fastapi`, `uvicorn`, `plexapi`, `numpy`, `Pillow`, `python-mpv`).
-4. Téléchargez la librairie dynamique `libmpv-2.dll` et placez-la à la racine du projet (Windows).
-5. Lancez le serveur via le fichier **`start.bat`**.
+1. Clone this repository.
+2. Create a Python virtual environment (`python -m venv venv`).
+3. Install dependencies (`pip install -r requirements.txt`).
+4. Download the `libmpv-2.dll` dynamic library and place it at the project root (Windows).
+5. Start the server using the **`start.bat`** file.
 
-## 🔧 Utilisation
-1. Ouvrez l'interface web (par défaut : `http://127.0.0.1:5777`).
-2. Saisissez vos identifiants Plex (URL et Token) et le nom de votre client Plex.
-3. Saisissez l'adresse IP de votre contrôleur WLED.
-4. Ajustez le nombre de LEDs pour chaque bordure (Haut, Bas, Gauche, Droite).
-5. Lancez un film sur Plex : les couleurs s'afficheront instantanément dans le simulateur web et sur votre mur !
+## 🔧 Usage
+1. Open the web interface (default: `http://127.0.0.1:5777`).
+2. Enter your Plex credentials (URL and Token) and the name of your Plex client.
+3. Enter your WLED controller's IP address.
+4. Adjust the number of LEDs for each border (Top, Bottom, Left, Right).
+5. Play a movie on Plex: colors will instantly appear in the web simulator and on your wall!
 
-## 🎬 Mode Zéro CPU (WLED Subtitles)
-Pour les plateformes légères (Raspberry Pi, vieux PC), vous pouvez pré-générer les couleurs d'un film pour supprimer toute charge CPU pendant la lecture :
-1. Utilisez l'outil intégré : `python bake.py "Chemin\Vers\Le\Film.mkv" --leds-x 64 --leds-y 36`
-2. Un fichier ultra-léger `.wledsub.lz4` sera créé à côté de la vidéo.
-3. À la prochaine lecture, AmbiPlex basculera automatiquement en mode Zéro CPU !
+## 🎬 Zero CPU Mode (WLED Subtitles) - *[OPTIONAL]*
+By default, AmbiPlex analyzes your video in real-time using `libmpv`. However, for low-power platforms (Raspberry Pi, old PCs) or maximum efficiency, you have the option to pre-generate movie colors to completely eliminate CPU load during playback:
+1. Open the Web Encoder from the AmbiPlex Dashboard.
+2. Select your movie file and click "Encoder".
+3. An ultra-light `.wledsub.lz4` file will be created next to the video.
+4. On the next playback, AmbiPlex will automatically switch to Zero CPU mode!
 
-![Simulateur LED](screenshot2.png)
+![LED Simulator](screenshot2.png)
 
-## 🛡️ Sécurité & Confidentialité
-Aucun secret (Token Plex, IP locale) n'est stocké dans le code source. Toutes les données sensibles sont sauvegardées dans un fichier `config.json` local (qui est ignoré par Git).
+## 🛡️ Security & Privacy
+No secrets (Plex Token, local IP) are hardcoded in the source code. All sensitive data is saved in a local `config.json` file (ignored by Git).
 
-## 📸 Galerie
-![Détail de Configuration](screenshot3.png)
-![Résultat de la Synchronisation](screenshot4.png)
+## 📸 Gallery
+![Configuration Detail](screenshot3.png)
+![Synchronization Result](screenshot4.png)
 
 ---
-*Conçu par Sébastien Bédard*
+*Designed by Sébastien Bédard*
