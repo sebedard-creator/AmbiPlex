@@ -417,12 +417,19 @@ def _browse_file():
     $f.Filter = "Fichiers Video (*.mkv;*.mp4;*.avi)|*.mkv;*.mp4;*.avi|Tous les fichiers (*.*)|*.*"
     $f.Title = "Sélectionnez un fichier vidéo"
     
-    $form = New-Object System.Windows.Forms.Form
-    $form.TopMost = $true
+    $wrapper = New-Object System.Windows.Forms.Form
+    $wrapper.TopMost = $true
+    $wrapper.ShowInTaskbar = $false
+    $wrapper.FormBorderStyle = 'None'
+    $wrapper.Size = New-Object System.Drawing.Size(0,0)
+    $wrapper.Show()
+    $wrapper.Activate()
     
-    if ($f.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
+    if ($f.ShowDialog($wrapper) -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Output $f.FileName
     }
+    
+    $wrapper.Close()
     """
     try:
         result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True)

@@ -178,17 +178,37 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
 
     cmd = [
         ffmpeg_path,
-        "-hwaccel", "auto",
-        "-threads", str(threads),
+        "-hwaccel", "auto"
+    ]
+    
+    if threads > 0:
+        cmd.extend([
+            "-threads", str(threads),
+            "-filter_threads", str(threads),
+            "-filter_complex_threads", str(threads)
+        ])
+        
+    cmd.extend([
         "-i", video_path,
         "-vf", vf_filter,
         "-f", "image2pipe",
         "-pix_fmt", "rgb24",
         "-vcodec", "rawvideo",
         "-"
-    ]
+    ])
 
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
+    
+    if threads > 0:
+        # Restriction matérielle stricte (Affinity Mask) pour Windows
+        # mask = 1 (core 0), mask = 3 (cores 0,1), mask = 15 (cores 0,1,2,3)
+        mask = (1 << threads) - 1
+        try:
+            # CREATE_NO_WINDOW = 0x08000000 to hide powershell
+            subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-Process -Id {process.pid}).ProcessorAffinity = {mask}"], creationflags=0x08000000)
+        except Exception:
+            pass
+
     crop_state = {'top': 0, 'bottom': 90, 'frames_top': 0, 'frames_bottom': 0}
     frame_size = 160 * 90 * 3
     start_time = time.time()
