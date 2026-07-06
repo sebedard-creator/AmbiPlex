@@ -214,9 +214,13 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
     start_time = time.time()
     
     i = 0
+    tmp_path = out_path + ".tmp"
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)
+        
     try:
         # Utilisation de LZ4 (L'algorithme de décompression le plus rapide au monde)
-        with lz4.frame.open(out_path, mode='wb', compression_level=0) as f:
+        with lz4.frame.open(tmp_path, mode='wb', compression_level=0) as f:
             header = struct.pack('<4s4sfIHH12x', b'WLED', b'0003', float(fps), int(total_frames), int(leds_x), int(leds_y))
             f.write(header)
             
@@ -226,6 +230,8 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
                 # Vérifier si FFmpeg a planté dès la première frame (ex: zscale non supporté)
                 if i == 0 and (not raw_data or len(raw_data) != frame_size):
                     process.terminate()
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
                     if use_advanced_tonemap:
                         print("\n⚠️ Erreur de filtre avancé (zscale). Tentative de fallback basique...", flush=True)
                         return False # Signale l'échec pour lancer le fallback
@@ -249,13 +255,18 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
                     
         print(f"\n✅ Terminé avec succès en {time.time() - start_time:.1f} secondes ! ({i} images traitées)", flush=True)
         process.terminate()
+        
+        # Validation atomique de succès
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        os.rename(tmp_path, out_path)
         return True
         
     except KeyboardInterrupt:
         print("\n\n⚠️ Scan annulé par l'utilisateur.", flush=True)
         process.terminate()
-        if os.path.exists(out_path):
-            os.remove(out_path)
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
         sys.exit(0)
 
 def main():

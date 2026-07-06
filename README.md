@@ -15,6 +15,7 @@ An ultra-high-performance, 100% software-based Ambilight system designed to sync
 - **DDP Protocol (UDP)**: Transmits data to WLED via the *Distributed Display Protocol* at over 20 FPS for zero latency.
 - **Modern Web Interface**: Real-time configuration (FastAPI + Vanilla JS Glassmorphism) with an interactive LED simulator.
 - **WLED Subtitles Web Encoder**: Built-in web tool to extract WLED metadata from any video file using FFmpeg, avoiding CPU usage during playback.
+- **AmbiPlex Rover (Batch Encoder)**: Standalone Windows GUI (`rover.py`) to recursively scan directories, visually highlight missing subtitles, and batch encode multiple movies sequentially with just one click.
 
 ## ⚙️ Hardware Requirements
 - A Plex server and a local Plex client (e.g., Apple TV, Nvidia Shield, Smart TV).

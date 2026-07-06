@@ -14,6 +14,7 @@ Le système agit en "Man-in-the-Middle" : il écoute les évènements de lecture
 
 ## 3. Structure des Dossiers et Fichiers Clés
 * `/start.bat` / `/stop.bat` : Scripts de lancement de l'application sous Windows (Virtual Env).
+* `/rover.py` : Logiciel Windows autonome (CustomTkinter) pour l'analyse de dossiers et l'encodage de masse (Batch Encode) de fichiers `.wledsub.lz4`.
 * `/web.py` : Serveur FastAPI, point d'entrée principal. Maintient la boucle asynchrone `while True` (blindée contre les déconnexions réseau) qui coordonne les modules. Héberge également les routes Web et SSE de l'encodeur WLED Subtitles.
 * `/player.py` : Classe `SlavePlayer` encapsulant `libmpv`. Agit en tant que fallback de lecture en temps réel si aucun métadonnée n'est pré-calculée.
 * `/wled_reader.py` : Lecteur JIT. Décompresse les fichiers `.wledsub.lz4` à la volée vers le cache, puis les mappe virtuellement en mémoire RAM via `numpy.memmap`, permettant un mode de lecture avec littéralement Zéro CPU en court-circuitant le lecteur MPV complet.

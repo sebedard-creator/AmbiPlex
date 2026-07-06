@@ -31,3 +31,11 @@
 - **Correction JIT WinError 8** : Résolution du plantage `[WinError 8]` dans `numpy.memmap`. Le système calcule désormais le nombre réel de frames directement d'après le poids du fichier sur le disque au lieu de se fier à l'entête théorique.
 - **UI UX - Sécurité d'Écrasement** : Le backend vérifie l'existence préalable d'un fichier `.wledsub.lz4` lors de la sélection d'une vidéo. L'UI change dynamiquement de couleur (Jaune) et le bouton se mue en "Écraser (Ré-encoder)" pour avertir l'utilisateur et éviter le travail en double.
 - **Affinité Matérielle (CPU Masking)** : Le script `bake.py` bride physiquement l'utilisation processeur de FFmpeg (et ZScale) via un masque d'affinité Windows (`ProcessorAffinity`) pour empêcher l'emballement du ventilateur du PC, limitant l'accès strict au nombre de cœurs choisis dans l'UI.
+
+## [Phase 8] - AmbiPlex Rover (Batch Encoder)
+- **Logiciel Autonome** : Création de `rover.py`, un mini-logiciel Windows indépendant basé sur `customtkinter`.
+- **Analyse de Dossier Récursive** : Scan un répertoire et tous ses sous-dossiers (`os.walk`), et identifie visuellement (couleur verte) les films possédant déjà un `.wledsub.lz4`.
+- **Sélection Ergonomique** : Implémentation du Shift-Click permettant de sélectionner ou désélectionner rapidement des dizaines de films d'un coup.
+- **Intégrité Atomique** : `bake.py` écrit désormais les données d'encodage dans un fichier `.tmp` temporaire. Le renommage en fichier final ne se produit qu'après succès à 100%, éliminant toute possibilité de corruption.
+- **Configuration CPU** : Intégration d'un Slider interactif dans l'interface du Rover permettant de brider manuellement les cœurs du processeur alloués à FFmpeg, synchronisé avec les valeurs de `config.json`.
+- **Encodage en Lot (Batch)** : Permet de sélectionner plusieurs films et de lancer `bake.py` séquentiellement pour créer les fichiers de sous-titres, en lisant automatiquement les paramètres matériels.

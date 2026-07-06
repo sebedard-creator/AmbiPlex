@@ -7,3 +7,4 @@ python-mpv
 requests
 py7zr
 lz4
+customtkinter
