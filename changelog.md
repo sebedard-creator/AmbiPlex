@@ -37,5 +37,7 @@
 - **Analyse de Dossier Récursive** : Scan un répertoire et tous ses sous-dossiers (`os.walk`), et identifie visuellement (couleur verte) les films possédant déjà un `.wledsub.lz4`.
 - **Sélection Ergonomique** : Implémentation du Shift-Click permettant de sélectionner ou désélectionner rapidement des dizaines de films d'un coup.
 - **Intégrité Atomique** : `bake.py` écrit désormais les données d'encodage dans un fichier `.tmp` temporaire. Le renommage en fichier final ne se produit qu'après succès à 100%, éliminant toute possibilité de corruption.
-- **Configuration CPU** : Intégration d'un Slider interactif dans l'interface du Rover permettant de brider manuellement les cœurs du processeur alloués à FFmpeg, synchronisé avec les valeurs de `config.json`.
-- **Encodage en Lot (Batch)** : Permet de sélectionner plusieurs films et de lancer `bake.py` séquentiellement pour créer les fichiers de sous-titres, en lisant automatiquement les paramètres matériels.
+- **Configuration CPU** : Intégration d'un Slider interactif dans l'interface du Rover permettant de brider manuellement les cœurs du processeur alloués à FFmpeg.
+- **Encodage en Lot (Batch)** : Permet de sélectionner plusieurs films et de lancer `bake.py` séquentiellement.
+- **Correction Windows File Lock** : Résolution du `[WinError 32]` lors du fallback de FFmpeg (`zscale`) en déplaçant la suppression du `.tmp` hors du contexte de compression LZ4.
+- **Correction UTF-8 (Rover)** : Injection stricte de l'encodage `UTF-8` dans le tuyau de communication (`subprocess.Popen`) entre le Rover et `bake.py` pour empêcher le crash silencieux lié à l'émoji `🎬` sous l'encodage `cp1252` par défaut de Windows.

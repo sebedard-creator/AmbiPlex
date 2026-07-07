@@ -11,6 +11,7 @@
 - Implémentation du moteur de scan récursif (os.walk) pour identifier les vidéos dans tous les sous-dossiers.
 - Implémentation de la sélection multiple par plage (Shift-Click) dans l'interface UI du Rover.
 - Implémentation de l'écriture atomique via extension `.tmp` dans `bake.py` garantissant l'intégrité absolue (Zéro corruption) des fichiers de sous-titres encodés.
+- Éradication des deux ultimes bugs systèmes sous Windows : `[WinError 32]` (File Lock) et `UnicodeDecodeError` (Pipeline UTF-8), garantissant la stabilité de `rover.py`.
 
 ### État Actuel
 - Le projet est stable, le mode WLEDSUB fonctionne parfaitement sans crash depuis l'interface Web ou via FFmpeg CLI. Aucun bug connu.

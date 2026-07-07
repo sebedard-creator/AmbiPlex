@@ -218,6 +218,9 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
     if os.path.exists(tmp_path):
         os.remove(tmp_path)
         
+    fallback_triggered = False
+    fatal_error = False
+    
     try:
         # Utilisation de LZ4 (L'algorithme de décompression le plus rapide au monde)
         with lz4.frame.open(tmp_path, mode='wb', compression_level=0) as f:
@@ -229,15 +232,11 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
                 
                 # Vérifier si FFmpeg a planté dès la première frame (ex: zscale non supporté)
                 if i == 0 and (not raw_data or len(raw_data) != frame_size):
-                    process.terminate()
-                    if os.path.exists(tmp_path):
-                        os.remove(tmp_path)
                     if use_advanced_tonemap:
-                        print("\n⚠️ Erreur de filtre avancé (zscale). Tentative de fallback basique...", flush=True)
-                        return False # Signale l'échec pour lancer le fallback
+                        fallback_triggered = True
                     else:
-                        print("\n❌ Erreur fatale: Impossible d'extraire la vidéo avec FFmpeg.", flush=True)
-                        sys.exit(1)
+                        fatal_error = True
+                    break
                 
                 if not raw_data or len(raw_data) != frame_size:
                     break # Fin de la vidéo
@@ -253,8 +252,21 @@ def run_scan(ffmpeg_path, video_path, out_path, fps, total_frames, leds_x, leds_
                     fps_scan = i / elapsed if elapsed > 0 else 0
                     print(f"\rProgression: {progress:.2f}% ({i}/{total_frames}) - Vitesse: {fps_scan:.1f} fps", end="", flush=True)
                     
-        print(f"\n✅ Terminé avec succès en {time.time() - start_time:.1f} secondes ! ({i} images traitées)", flush=True)
         process.terminate()
+        
+        if fallback_triggered:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            print("\n⚠️ Erreur de filtre avancé (zscale). Tentative de fallback basique...", flush=True)
+            return False
+            
+        if fatal_error:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            print("\n❌ Erreur fatale: Impossible d'extraire la vidéo avec FFmpeg.", flush=True)
+            sys.exit(1)
+            
+        print(f"\n✅ Terminé avec succès en {time.time() - start_time:.1f} secondes ! ({i} images traitées)", flush=True)
         
         # Validation atomique de succès
         if os.path.exists(out_path):

@@ -225,20 +225,16 @@ class AmbiPlexRover(ctk.CTk):
                     stdout=subprocess.PIPE, 
                     stderr=subprocess.STDOUT, 
                     text=True, 
+                    encoding="utf-8",
                     bufsize=1,
                     creationflags=creationflags,
                     env=env
                 )
                 
-                log_path = os.path.join(os.path.dirname(__file__), "rover_debug.txt")
-                with open(log_path, "a", encoding="utf-8") as debug_log:
-                    debug_log.write(f"\\n--- LANCEMENT DE BAKE.PY POUR {filename} ---\\n")
-                    debug_log.write(f"CMD: {' '.join(cmd)}\\n")
-                    for line in process.stdout:
-                        debug_log.write(line)
-                        if "Progression:" in line:
-                            pct = line.split("Progression:")[1].strip()
-                            self.update_status(f"[{i+1}/{total}] Encodage: {filename} ({pct})", i / total)
+                for line in process.stdout:
+                    if "Progression:" in line:
+                        pct = line.split("Progression:")[1].strip()
+                        self.update_status(f"[{i+1}/{total}] Encodage: {filename} ({pct})", i / total)
                 
                 process.wait()
             except Exception as e:
