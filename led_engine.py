@@ -235,6 +235,11 @@ class LedEngine:
             target_colors = self.last_colors * (1.0 - alpha) + target_colors * alpha
             
         self.last_colors = target_colors
+        
+        # Filtre Black Threshold (Anti-Rouge Fantôme)
+        # Ajusté à 6 (le sweet spot absolu) : ni trop brutal, ni trop rouge.
+        target_colors = np.where(np.max(target_colors, axis=1, keepdims=True) < 6, 0, target_colors)
+        
         return np.clip(target_colors, 0, 255).astype(np.uint8).tolist()
 
     def process_prebaked_colors(self, rgb565_array, config):
