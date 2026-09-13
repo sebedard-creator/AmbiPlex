@@ -1,5 +1,6 @@
 import socket
 import numpy as np
+from color_sampling import sample_segments
 
 class LedEngine:
     def __init__(self):
@@ -92,9 +93,6 @@ class LedEngine:
         cfg_depth = config.get("led_depth")
         depth_pct = float(cfg_depth if cfg_depth is not None else 10) / 100.0
         
-        cfg_smooth = config.get("led_smoothing")
-        smoothing = float(cfg_smooth if cfg_smooth is not None else 50) / 100.0
-        
         depth_y = max(1, int(h * depth_pct))
         depth_x = max(1, int(w * depth_pct))
         
@@ -117,68 +115,13 @@ class LedEngine:
             left_zone[self.crop_bottom:h, :] = [0, 0, 0]
             right_zone[self.crop_bottom:h, :] = [0, 0, 0]
         
-        top_colors = []
-        right_colors = []
-        bottom_colors = []
-        left_colors = []
-        
         corner_gap_pct = float(config.get("led_corner_gap", 0)) / 100.0
         gap_x = int(w * corner_gap_pct)
         gap_y = int(h * corner_gap_pct)
-        eff_w = max(1, w - 2 * gap_x)
-        eff_h = max(1, h - 2 * gap_y)
-
-        # 1. Haut (Gauche vers Droite)
-        if leds_top > 0:
-            segment_width = eff_w / leds_top
-            for i in range(leds_top):
-                start = gap_x + int(i * segment_width)
-                end = gap_x + int((i + 1) * segment_width)
-                segment = top_zone[:, start:end]
-                if segment.size > 0:
-                    color = np.mean(segment, axis=(0, 1))
-                else:
-                    color = np.array([0,0,0])
-                top_colors.append(color)
-                
-        # 2. Droite (Haut vers Bas)
-        if leds_side > 0:
-            segment_height = eff_h / leds_side
-            for i in range(leds_side):
-                start = gap_y + int(i * segment_height)
-                end = gap_y + int((i + 1) * segment_height)
-                segment = right_zone[start:end, :]
-                if segment.size > 0:
-                    color = np.mean(segment, axis=(0, 1))
-                else:
-                    color = np.array([0,0,0])
-                right_colors.append(color)
-                
-        # 3. Bas (Droite vers Gauche pour suivre le ruban horaire)
-        if leds_top > 0:
-            segment_width = eff_w / leds_top
-            for i in range(leds_top - 1, -1, -1):
-                start = gap_x + int(i * segment_width)
-                end = gap_x + int((i + 1) * segment_width)
-                segment = bottom_zone[:, start:end]
-                if segment.size > 0:
-                    color = np.mean(segment, axis=(0, 1))
-                else:
-                    color = np.array([0,0,0])
-                bottom_colors.append(color)
-                
-        # 4. Gauche (Bas vers Haut pour suivre le ruban horaire)
-        if leds_side > 0:
-            segment_height = eff_h / leds_side
-            for i in range(leds_side - 1, -1, -1):
-                start = gap_y + int(i * segment_height)
-                end = gap_y + int((i + 1) * segment_height)
-                segment = left_zone[start:end, :]
-                if segment.size > 0:
-                    color = np.mean(segment, axis=(0, 1))
-                else:
-                    color = np.array([0,0,0])
-                left_colors.append(color)
+        top_colors = sample_segments(top_zone, leds_top, 0, gap_x)
+        right_colors = sample_segments(right_zone, leds_side, 1, gap_y)
+        bottom_colors = sample_segments(bottom_zone, leds_top, 0, gap_x)[::-1]
+        left_colors = sample_segments(left_zone, leds_side, 1, gap_y)[::-1]
 
         return self._apply_routing(top_colors, right_colors, bottom_colors, left_colors, config)
 

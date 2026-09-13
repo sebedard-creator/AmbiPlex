@@ -1,5 +1,31 @@
 # Journal des Modifications (Changelog) - AmbiPlex
 
+## 2026-09-13 - Performances et sélection locale
+
+- Moyennes de couleurs regroupées dans `color_sampling.py`, communes au rendu
+  temps réel et au préencodage. Résultats RGB8 identiques dans les comparaisons.
+- Calcul LED mesuré de 1,410 à 0,490 ms/image ; calcul de préencodage de 1,264 à
+  0,331 ms/image sur 200 LED. Décodage, capture GPU et réseau exclus de ces mesures.
+- Cache des vérifications WLEDSUB et décompression par blocs de 1 MiB hors de la
+  boucle asyncio. Revérification du média et des dimensions après chargement.
+- Copie des petites trames memmap pour permettre la libération du fichier sous
+  Windows ; nettoyage lors de l'arrêt gracieux du serveur.
+- Un état de monitoring en attente par navigateur, avec conservation séparée des
+  logs et presets. Cache des mesures/positions des numéros du simulateur.
+- Réduction des commandes MPV redondantes en mode caché. Capture et traitement
+  en pause conservés pour préserver le comportement visuel.
+- Correction du curseur CPU de Rover, qui recréait les composants de la fenêtre.
+- Sessions distantes ou relayées exclues. Le nom du lecteur maître doit
+  correspondre ; suppression du repli vers un autre appareil. Validation du
+  lecteur et de la clé de session, avec rafraîchissement des sessions limité.
+- 26 tests Python et 34 comparaisons exactes du canvas réussis. Essai MPV local
+  réussi ; validation physique Plex/WLED encore à effectuer après redémarrage.
+- Documentation actualisée et exclusions Git complétées pour les fichiers générés.
+
+Les phases ci-dessous conservent l'historique du projet. L'architecture actuelle
+est décrite dans [architecture.md](architecture.md), avec les limites et résultats
+de validation dans [tests/README.md](tests/README.md).
+
 ## [Phase 1 & 2] - Fondations
 - Création du projet.
 - Implémentation du backend FastAPI.
@@ -20,8 +46,8 @@
 - **Correction de Ratio Physique** : `led_engine.py` préserve l'échelle verticale physique à 100% lors des films en Letterbox.
 
 ## [Phase 6] - Zero CPU Mode (WLED Subtitles JIT)
-- **Architecture**: Intégration d'un système de sous-titres visuels `.wledsub.lz4` pour supprimer l'utilisation CPU sur le serveur local.
-- **wled_reader.py**: Création du module de décompression JIT via `lz4` et mappage direct en RAM avec `numpy.memmap`.
+- **Architecture**: Intégration de pistes `.wledsub.lz4` pour éviter le décodage vidéo pendant la lecture et réduire le travail CPU/GPU.
+- **wled_reader.py**: Décompression JIT via `lz4` vers un cache disque, puis accès avec `numpy.memmap`.
 - **web.py**: Détection automatique des fichiers compatibles. Mode "Zéro CPU" activé (court-circuitage total de l'instance MPV).
 
 ## [Phase 7] - Encodeur Web UI & Résolution des Bugs de Mémoire
@@ -36,7 +62,7 @@
 - **Logiciel Autonome** : Création de `rover.py`, un mini-logiciel Windows indépendant basé sur `customtkinter`.
 - **Analyse de Dossier Récursive** : Scan un répertoire et tous ses sous-dossiers (`os.walk`), et identifie visuellement (couleur verte) les films possédant déjà un `.wledsub.lz4`.
 - **Sélection Ergonomique** : Implémentation du Shift-Click permettant de sélectionner ou désélectionner rapidement des dizaines de films d'un coup.
-- **Intégrité Atomique** : `bake.py` écrit désormais les données d'encodage dans un fichier `.tmp` temporaire. Le renommage en fichier final ne se produit qu'après succès à 100%, éliminant toute possibilité de corruption.
+- **Écriture temporaire** : `bake.py` écrit dans un fichier `.tmp` avant de le renommer. Le remplacement supprime préalablement l'ancien fichier final ; il ne garantit pas une transaction atomique en cas d'interruption.
 - **Configuration CPU** : Intégration d'un Slider interactif dans l'interface du Rover permettant de brider manuellement les cœurs du processeur alloués à FFmpeg.
 - **Encodage en Lot (Batch)** : Permet de sélectionner plusieurs films et de lancer `bake.py` séquentiellement.
 - **Correction Windows File Lock** : Résolution du `[WinError 32]` lors du fallback de FFmpeg (`zscale`) en déplaçant la suppression du `.tmp` hors du contexte de compression LZ4.

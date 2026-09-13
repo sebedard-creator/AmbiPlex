@@ -3,6 +3,7 @@ config.json
 
 # Environnements virtuels
 venv/
+.venv/
 env/
 .env
 
@@ -37,9 +38,14 @@ Thumbs.db
 
 # Fichiers Binaires et Dépendances lourdes
 libmpv-2.dll
+ffmpeg.exe
+ffmpeg.zip
+mpv-dev-x86_64*.7z
 *.mp4
 *.mkv
 
 # WLED Subtitles & Cache
 cache/
 *.wledsub.lz4
+*.wledsub.lz4.tmp
+*.wledsub_raw

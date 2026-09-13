@@ -13,15 +13,17 @@ from sync import PlexSynchronizer
 from player import SlavePlayer
 from led_engine import LedEngine
 from wled_reader import WledSubtitleReader
+from monitoring import MonitorMailbox
 
 app = FastAPI()
 
 CONFIG_FILE = "config.json"
-clients = [] # list of asyncio Queues for SSE
+clients = [] # Per-browser monitoring mailboxes for SSE.
 sync_task = None
 sync_instance = None
 player_instance = None
 wled_reader_instance = None
+led_engine_instance = None
 
 logger = logging.getLogger("WebUI")
 
@@ -155,11 +157,21 @@ async def background_sync_loop():
                 
                 is_wledsub = False
                 if sync_instance.current_media_path:
-                    if wled_reader_instance.active_file != sync_instance.current_media_path:
-                        wled_reader_instance.close()
-                        
                     was_active = wled_reader_instance.is_active()
-                    is_wledsub = wled_reader_instance.load_if_compatible(sync_instance.current_media_path, expected_x, expected_y)
+                    media_path = sync_instance.current_media_path
+                    loading = wled_reader_instance.needs_check(media_path, expected_x, expected_y)
+                    is_wledsub = await wled_reader_instance.ensure_compatible(media_path, expected_x, expected_y)
+                    if loading:
+                        config = load_config()
+                        last_config_load = time.time()
+                        # Plex and settings can change while the worker is reading.
+                        if (sync_instance.current_media_path != media_path
+                                or not sync_instance.is_playing
+                                or int(config.get("leds_top", 50)) != expected_x
+                                or int(config.get("leds_side", 30)) != expected_y):
+                            if sync_instance.current_media_path != media_path:
+                                wled_reader_instance.close()
+                            continue
                     
                     if is_wledsub and not was_active:
                         await broadcast({"type": "info", "message": f"✅ WLEDSUB DÉTECTÉ ET IMPORTÉ EN RAM ({expected_x}x{expected_y})"})
@@ -322,6 +334,7 @@ async def background_sync_loop():
                             data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
             
             last_playing_state = current_playing_state
+            data["loop_time_ms"] = int((time.perf_counter() - loop_start_time) * 1000)
             await broadcast(data)
         except Exception as e:
             import traceback
@@ -357,6 +370,23 @@ async def broadcast(data: dict):
 async def startup_event():
     global sync_task
     sync_task = asyncio.create_task(background_sync_loop())
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if sync_task:
+        sync_task.cancel()
+        try:
+            await sync_task
+        except asyncio.CancelledError:
+            pass
+    if wled_reader_instance:
+        wled_reader_instance.close()
+    if player_instance:
+        player_instance.quit()
+    if led_engine_instance:
+        led_engine_instance.close()
+    if sync_instance and sync_instance.notifier:
+        await asyncio.to_thread(sync_instance.notifier.stop)
 
 from fastapi.responses import JSONResponse
 
@@ -514,7 +544,7 @@ def read_root():
 
 @app.get("/api/stream")
 async def stream(request: Request):
-    q = asyncio.Queue()
+    q = MonitorMailbox()
     clients.append(q)
     
     # Push immediate state so the UI log shows it even if it started earlier

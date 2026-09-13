@@ -3,6 +3,8 @@ import struct
 import numpy as np
 import lz4.frame
 import logging
+import asyncio
+import time
 
 logger = logging.getLogger("WledReader")
 
@@ -19,6 +21,29 @@ class WledSubtitleReader:
         self.total_frames = 0
         self.leds_x = 0
         self.leds_y = 0
+        self._checked_key = None
+        self._checked_signature = None
+        self._next_check = 0.0
+        self._raw_path = None
+
+    def needs_check(self, video_path, expected_x, expected_y):
+        return (self._checked_key != (video_path, expected_x, expected_y)
+                or time.monotonic() >= self._next_check)
+
+    async def ensure_compatible(self, video_path, expected_x, expected_y):
+        if not self.needs_check(video_path, expected_x, expected_y):
+            return self.is_active()
+        # One caller owns the reader. Finish its worker before allowing cleanup.
+        task = asyncio.create_task(asyncio.to_thread(
+            self.load_if_compatible, video_path, expected_x, expected_y))
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            try:
+                await task
+            finally:
+                self.close()
+            raise
         
     def load_if_compatible(self, video_path, expected_x, expected_y):
         """
@@ -26,17 +51,25 @@ class WledSubtitleReader:
         et le mappe en mémoire SI la configuration matérielle correspond.
         """
         if not video_path:
+            self.close()
             return False
-            
+
+        key = (video_path, expected_x, expected_y)
+        if not self.needs_check(*key):
+            return self.is_active()
         wled_path = os.path.splitext(video_path)[0] + ".wledsub.lz4"
-        if not os.path.exists(wled_path):
-            return False
-            
-        if self.active_file == video_path and self.memmap_array is not None:
-            # Déjà chargé !
-            return True
-            
+        signature = None
         try:
+            try:
+                stat = os.stat(wled_path)
+                signature = (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+            except FileNotFoundError:
+                pass
+            if key == self._checked_key and signature == self._checked_signature:
+                return self.is_active()
+            self.close()
+            if signature is None:
+                return False
             with lz4.frame.open(wled_path, 'rb') as f:
                 header = f.read(32)
                 if len(header) < 32:
@@ -65,7 +98,9 @@ class WledSubtitleReader:
                 frame_elements = self.leds_x * 2 + self.leds_y * 2
                 
                 with open(raw_path, 'wb') as raw_file:
-                    raw_file.write(f.read())
+                    self._raw_path = raw_path
+                    while chunk := f.read(1024 * 1024):
+                        raw_file.write(chunk)
                     
             # Calculate actual frames to avoid WinError 8 if FFmpeg extracted fewer frames than the theoretical header value
             file_size = os.path.getsize(raw_path)
@@ -83,7 +118,12 @@ class WledSubtitleReader:
             import traceback
             logger.error(f"Erreur lors du chargement de {wled_path}: {e}\n{traceback.format_exc()}")
             self.close()
+            signature = None  # Retry transient read/decompression errors.
             return False
+        finally:
+            self._checked_key = key
+            self._checked_signature = signature
+            self._next_check = time.monotonic() + 1.0
             
     def is_active(self):
         return self.memmap_array is not None
@@ -91,12 +131,17 @@ class WledSubtitleReader:
     def close(self):
         self.memmap_array = None
         self.active_file = None
-        raw_path = os.path.join(self.cache_dir, "active_movie.wledsub_raw")
-        if os.path.exists(raw_path):
+        self._checked_key = None
+        self._checked_signature = None
+        self._next_check = 0.0
+        if self._raw_path is not None:
             try:
-                os.remove(raw_path)
-            except Exception:
+                os.remove(self._raw_path)
+            except FileNotFoundError:
                 pass
+            except OSError as e:
+                logger.warning(f"Impossible de supprimer le cache {self._raw_path}: {e}")
+            self._raw_path = None
         
     def get_colors_at_time(self, time_ms):
         if not self.is_active():
@@ -108,4 +153,5 @@ class WledSubtitleReader:
         if frame_index >= self.total_frames:
             frame_index = self.total_frames - 1
             
-        return self.memmap_array[frame_index]
+        # A tiny owned frame lets Windows release the mapping on movie changes.
+        return self.memmap_array[frame_index].copy()

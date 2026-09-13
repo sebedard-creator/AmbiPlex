@@ -9,6 +9,7 @@ import urllib.request
 import zipfile
 import re
 import lz4.frame
+from color_sampling import sample_segments
 
 # URL for a static FFmpeg Windows build (GPL version includes zscale for HDR tonemapping)
 FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
@@ -124,35 +125,10 @@ def process_frame(frame, crop_state, leds_x, leds_y, depth=8):
         left_zone[c_bottom:h, :] = [0, 0, 0]
         right_zone[c_bottom:h, :] = [0, 0, 0]
         
-    eff_w, eff_h = w, h
-    
-    top_colors, right_colors, bottom_colors, left_colors = [], [], [], []
-    
-    # 1. Haut (Gauche à Droite)
-    segment_width = eff_w / leds_x
-    for i in range(leds_x):
-        start, end = int(i * segment_width), int((i + 1) * segment_width)
-        segment = top_zone[:, start:end]
-        top_colors.append(np.mean(segment, axis=(0, 1)) if segment.size > 0 else np.array([0,0,0]))
-            
-    # 2. Droite (Haut à Bas)
-    segment_height = eff_h / leds_y
-    for i in range(leds_y):
-        start, end = int(i * segment_height), int((i + 1) * segment_height)
-        segment = right_zone[start:end, :]
-        right_colors.append(np.mean(segment, axis=(0, 1)) if segment.size > 0 else np.array([0,0,0]))
-            
-    # 3. Bas (Droite à Gauche)
-    for i in range(leds_x - 1, -1, -1):
-        start, end = int(i * segment_width), int((i + 1) * segment_width)
-        segment = bottom_zone[:, start:end]
-        bottom_colors.append(np.mean(segment, axis=(0, 1)) if segment.size > 0 else np.array([0,0,0]))
-            
-    # 4. Gauche (Bas à Haut)
-    for i in range(leds_y - 1, -1, -1):
-        start, end = int(i * segment_height), int((i + 1) * segment_height)
-        segment = left_zone[start:end, :]
-        left_colors.append(np.mean(segment, axis=(0, 1)) if segment.size > 0 else np.array([0,0,0]))
+    top_colors = sample_segments(top_zone, leds_x, 0)
+    right_colors = sample_segments(right_zone, leds_y, 1)
+    bottom_colors = sample_segments(bottom_zone, leds_x, 0)[::-1]
+    left_colors = sample_segments(left_zone, leds_y, 1)[::-1]
             
     colors = top_colors + right_colors + bottom_colors + left_colors
     target_colors = np.clip(np.array(colors), 0, 255).astype(np.uint16)

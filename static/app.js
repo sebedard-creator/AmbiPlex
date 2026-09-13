@@ -211,6 +211,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const canvas = document.getElementById("ledSimulator");
     const ctx = canvas ? canvas.getContext("2d") : null;
+    const statusElements = Object.fromEntries(
+        ['state', 'offset', 'local_offset', 'action', 'dropped', 'crop'].map(
+            name => [name, document.getElementById('status_' + name)]));
+    function updateStatus(name, value, property = 'textContent') {
+        const element = statusElements[name];
+        if (element && element[property] !== String(value)) element[property] = String(value);
+    }
+    let labelCache = { key: null, labels: [] };
+    if (document.fonts) {
+        document.fonts.ready.then(() => { labelCache.key = null; });
+        document.fonts.addEventListener('loadingdone', () => { labelCache.key = null; });
+    }
 
     evtSource.onmessage = function(event) {
         const data = JSON.parse(event.data);
@@ -248,20 +260,17 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             
         } else if(data.type === "monitoring") {
-            document.getElementById("status_state").textContent = data.state.toUpperCase();
-            document.getElementById("status_state").className = "badge " + (data.state.includes("playing") ? "playing" : "paused");
+            updateStatus('state', data.state.toUpperCase());
+            updateStatus('state', "badge " + (data.state.includes("playing") ? "playing" : "paused"), 'className');
             
-            document.getElementById("status_offset").textContent = data.offset + " ms";
-            document.getElementById("status_local_offset").textContent = Math.round(data.local_offset) + " ms";
-            document.getElementById("status_action").textContent = data.action;
-            if(data.loop_time_ms !== undefined) {
-                document.getElementById("status_action").textContent += ` (${data.loop_time_ms}ms)`;
-            }
+            updateStatus('offset', data.offset + " ms");
+            updateStatus('local_offset', Math.round(data.local_offset) + " ms");
+            updateStatus('action', data.action + (data.loop_time_ms !== undefined ? ` (${data.loop_time_ms}ms)` : ''));
             if(document.getElementById("status_dropped") && data.dropped_frames !== undefined) {
-                document.getElementById("status_dropped").textContent = data.dropped_frames;
+                updateStatus('dropped', data.dropped_frames);
             }
             if(document.getElementById("status_crop") && data.crop_box) {
-                document.getElementById("status_crop").textContent = `${data.crop_box[0]} à ${data.crop_box[1]}`;
+                updateStatus('crop', `${data.crop_box[0]} à ${data.crop_box[1]}`);
             }
             
             // Dessiner la simulation LED
@@ -350,10 +359,9 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
-        const drawLabel = (text, x, y, isCorner) => {
+        const drawLabel = (text, x, y, isCorner, textWidth) => {
             const padX = 5;
             const padY = 3;
-            const textWidth = ctx.measureText(text).width;
             const textHeight = 10;
             
             ctx.fillStyle = isCorner ? "rgba(52, 152, 219, 0.95)" : "rgba(30, 30, 30, 0.75)";
@@ -370,6 +378,9 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const totalLeds = totalTop + totalRight + totalBottom + totalLeft;
+        const labelKey = `${w}:${h}:${totalTop}:${totalRight}:${ctx.font}`;
+        if (labelCache.key !== labelKey) {
+        labelCache = { key: labelKey, labels: [] };
         for (let idx = 0; idx < totalLeds; idx++) {
             const num = idx + 1;
             let isCorner = false;
@@ -435,9 +446,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 x = Math.max(safeX, Math.min(w - safeX, x));
                 y = Math.max(safeY, Math.min(h - safeY, y));
 
-                drawLabel(num.toString(), x, y, isCorner);
+                labelCache.labels.push([num.toString(), x, y, isCorner, textWidth]);
             }
         }
+        }
+        for (const label of labelCache.labels) drawLabel(...label);
     }
 
     // Logique de lien de luminosité

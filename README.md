@@ -2,55 +2,99 @@
 
 ![AmbiPlex Interface](screenshot1.png)
 
-*Note: The user interface and internal logs of this software are in French.*
+AmbiPlex synchronizes an addressable LED strip with a local Plex video player,
+using a WLED-compatible controller. The interface and application logs are in French.
 
-An ultra-high-performance, 100% software-based Ambilight system designed to synchronize with the **Plex** video player and drive hardware LED strips (via **WLED / QuinLED ESP32**) on a local network.
+## Features
 
-## ✨ Features
-- **Plex Man-in-the-Middle**: Listens to Plex playback events via Websocket and synchronizes an invisible (headless) `MPV` instance in the background.
-- **Asymmetrical Auto-Crop (Anti-Subtitles)**: Mathematically detects black bars (2.35:1 Letterbox) in real time. Analyzes only the top bar to ignore subtitles, ensuring absolute visual stability.
-- **Extreme Downscaling (Fallback)**: Uses `libmpv`'s `screenshot_raw` API and `Pillow` to reduce the image size in real time before extraction if the format requires it.
-- **Zero CPU Mode (WLED Subtitles)**: Decompresses pre-calculated `.wledsub.lz4` files on the fly, maps them to memory (`numpy.memmap`), and completely bypasses the video player. Drastically reduces CPU consumption.
-- **Numpy LED Engine**: Calculates the average colors (RGB) of the image borders in milliseconds using matrix slicing.
-- **DDP Protocol (UDP)**: Transmits data to WLED via the *Distributed Display Protocol* at over 20 FPS for zero latency.
-- **Modern Web Interface**: Real-time configuration (FastAPI + Vanilla JS Glassmorphism) with an interactive LED simulator.
-- **WLED Subtitles Web Encoder**: Built-in web tool to extract WLED metadata from any video file using FFmpeg, avoiding CPU usage during playback.
-- **AmbiPlex Rover (Batch Encoder)**: Standalone Windows GUI (`rover.py`) to recursively scan directories, visually highlight missing subtitles, and batch encode multiple movies sequentially with just one click.
+- Local Plex playback selection with a configurable master player.
+- Real-time fallback using an invisible MPV window and 160x90 RGB capture.
+- Black-bar detection, per-side brightness, temporal smoothing, LED routing and offsets.
+- Precomputed `.wledsub.lz4` tracks that bypass MPV and video decoding during playback.
+- Shared NumPy segment sampling for real-time processing and preencoding.
+- DDP output to WLED, a web simulator and live monitoring over SSE.
+- A web encoder and the Windows Rover application for sequential batch encoding.
 
-## ⚙️ Hardware Requirements
-- A Plex server and a local Plex client (e.g., Apple TV, Nvidia Shield, Smart TV).
-- A WLED-compatible LED controller (Recommended: **QuinLED Dig-Uno** with Ethernet Hat).
-- An addressable LED strip (e.g., **WS2812B** 60 leds/m).
+## Requirements
 
-## 🚀 Installation
-1. Clone this repository.
-2. Create a Python virtual environment (`python -m venv venv`).
-3. Install dependencies (`pip install -r requirements.txt`).
-4. Download the `libmpv-2.dll` dynamic library and place it at the project root (Windows).
-5. Start the server using the **`start.bat`** file.
+- Windows; tested with Python 3.11 and 64-bit libmpv.
+- A Plex server and a Plex client on the local network.
+- Video paths reported by Plex must be accessible from the AmbiPlex computer.
+- A WLED-compatible controller and addressable LEDs.
+- FFmpeg for preencoding. The encoder checks the project directory and PATH,
+  then downloads a Windows build if none is available.
 
-## 🔧 Usage
-1. Open the web interface (default: `http://127.0.0.1:5777`).
-2. Enter your Plex credentials (URL and Token) and the name of your Plex client.
-3. Enter your WLED controller's IP address.
-4. Adjust the number of LEDs for each border (Top, Bottom, Left, Right).
-5. Play a movie on Plex: colors will instantly appear in the web simulator and on your wall!
+## Installation
 
-## 🎬 Zero CPU Mode (WLED Subtitles) - *[OPTIONAL]*
-By default, AmbiPlex analyzes your video in real-time using `libmpv`. However, for low-power platforms (Raspberry Pi, old PCs) or maximum efficiency, you have the option to pre-generate movie colors to completely eliminate CPU load during playback:
-1. Open the Web Encoder from the AmbiPlex Dashboard.
-2. Select your movie file and click "Encoder".
-3. An ultra-light `.wledsub.lz4` file will be created next to the video.
-4. On the next playback, AmbiPlex will automatically switch to Zero CPU mode!
+1. Clone this repository and open a terminal in the project directory.
+2. Create the environment: `python -m venv venv`.
+3. Install dependencies: `venv\Scripts\python.exe -m pip install -r requirements.txt`.
+4. Place `libmpv-2.dll` at the project root. The optional
+   `download_mpv.py` helper downloads it from the upstream Windows builds.
+5. Run `start.bat` and open [the dashboard](http://127.0.0.1:5777).
+
+## Configuration and Playback
+
+1. Enter the Plex server URL and token.
+2. Set **Master Client Name** to the player's name as reported by Plex.
+   Case, underscores and extra whitespace are ignored: `Sony_Bravia` matches
+   `Sony Bravia`. Other name differences do not match.
+3. Enter the WLED address, horizontal/vertical LED counts and strip routing.
+4. Start local playback and adjust the LED settings and synchronization offset.
+
+When a master name is set, AmbiPlex waits for that player instead of selecting
+another device. An empty name enables automatic selection among verified local
+video sessions. Remote and relayed sessions are rejected; a private IP address
+alone is not sufficient. Client identifiers and session keys are checked together.
+This relies on Plex's LAN classification, which VPNs or unusual network settings
+can affect.
+
+Restart AmbiPlex after source-code updates. Closing the server gracefully releases
+the reader, MPV and network resources. `stop.bat` uses forced termination, so it
+does not guarantee that graceful cleanup runs.
+
+## Precomputed LED Tracks
+
+Open the web encoder, or run `start_rover.bat` for batch encoding. The CLI is also available:
+
+```powershell
+venv\Scripts\python.exe bake.py "D:\Movies\Film.mkv" --leds-x 64 --leds-y 36 --depth 8 --threads 0
+```
+
+The output sits beside the video as `Film.wledsub.lz4`. Its LED dimensions must
+match the current configuration. Capture depth and black-bar processing are baked
+into the track; changing those requires reencoding. Brightness, smoothing, routing
+and side offsets remain adjustable during playback.
+
+Compatible tracks are decompressed in 1 MiB blocks into a disk cache and accessed
+with NumPy memmap. Detection is rechecked about once per second during playback.
+Missing or incompatible tracks use MPV. Precomputation reduces CPU/GPU work but
+does not eliminate it; RGB565 also has lower color precision than RGB888.
 
 ![LED Simulator](screenshot2.png)
 
-## 🛡️ Security & Privacy
-No secrets (Plex Token, local IP) are hardcoded in the source code. All sensitive data is saved in a local `config.json` file (ignored by Git).
+## Validation and Limits
 
-## 📸 Gallery
+See [test instructions and measured results](tests/README.md).
+The September 2026 changes passed 26 Python tests and 34 exact simulator-canvas
+comparisons. Measurements cover individual color functions, not whole-application
+CPU consumption. Physical Plex-to-WLED validation remains necessary.
+
+The current DDP sender supports up to 480 LEDs in one packet; larger arrays are
+truncated. Native refresh follows MPV's reported frame rate in real-time mode;
+precomputed playback uses the configured refresh rate.
+
+## Configuration and Repository Hygiene
+
+`config.json` contains the Plex token and local settings and is ignored by Git.
+Virtual environments, downloaded video binaries, calibration videos, generated
+LED tracks and runtime caches are also excluded. Keep them locally as needed.
+The server listens on port 5777 and has no application authentication; use it
+on a trusted network.
+
+## Gallery
+
 ![Configuration Detail](screenshot3.png)
 ![Synchronization Result](screenshot4.png)
 
----
-*Designed by Sébastien Bédard*
+Designed by Sébastien Bédard.

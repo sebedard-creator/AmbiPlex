@@ -61,13 +61,6 @@ class AmbiPlexRover(ctk.CTk):
         self.threads_var.set(initial_threads)
         self.update_threads_label(initial_threads)
         
-    def update_threads_label(self, val):
-        v = int(val)
-        if v == 0:
-            self.threads_label.configure(text="CPU Threads: Auto (Max)")
-        else:
-            self.threads_label.configure(text=f"CPU Threads: {v}")
-        
         # List Frame
         self.scroll_frame = ctk.CTkScrollableFrame(self)
         self.scroll_frame.grid(row=1, column=0, padx=20, pady=0, sticky="nsew")
@@ -90,6 +83,13 @@ class AmbiPlexRover(ctk.CTk):
         self.status_label = ctk.CTkLabel(self.footer_frame, text="Prêt", text_color="gray")
         self.status_label.grid(row=1, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="w")
         
+    def update_threads_label(self, val):
+        v = int(val)
+        if v == 0:
+            self.threads_label.configure(text="CPU Threads: Auto (Max)")
+        else:
+            self.threads_label.configure(text=f"CPU Threads: {v}")
+
     def browse_folder(self):
         folder = filedialog.askdirectory(title="Sélectionner le dossier contenant vos films")
         if folder:

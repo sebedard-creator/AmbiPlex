@@ -1,22 +1,53 @@
-## Date: 2026-07-04
-### Accomplissements (Phase 7 & 8)
-- Création d'une interface web dédiée (`/encoder`) pour l'extraction WLED Subtitles.
-- Implémentation du script PowerShell de dialogue de fichiers natif avec injection C# (user32.dll `SetForegroundWindow`) pour by-passer de force la protection "Focus Stealing" de Windows.
-- Résolution complète du bug de l'encodage `cp1252` sur Windows qui corrompait la console web lors de la réception de symboles ou tracebacks.
-- Résolution du `[WinError 8]` dans `wled_reader.py` lors du mappage mémoire. Le fichier s'adapte désormais dynamiquement au poids exact du fichier brut généré par FFmpeg au lieu de la durée mathématique, empêchant tout crash de mémoire.
-- Ajout d'une fonctionnalité UX de sécurité d'écrasement : l'interface web avertit l'utilisateur (Boîte de texte jaune + "Écraser") si un fichier .wledsub existe déjà pour le film sélectionné.
-- Restriction matérielle absolue (Masque d'affinité CPU Windows) de FFmpeg dans `bake.py` pour garantir la limitation du ventilateur et des ressources processeur selon le choix de l'utilisateur.
-- Traduction du README.md en anglais, nettoyage final du projet.
-- Création du mini-logiciel autonome `rover.py` (Phase 8) basé sur CustomTkinter pour l'encodage par lot de fichiers multiples au sein d'un répertoire donné.
-- Implémentation du moteur de scan récursif (os.walk) pour identifier les vidéos dans tous les sous-dossiers.
-- Implémentation de la sélection multiple par plage (Shift-Click) dans l'interface UI du Rover.
-- Implémentation de l'écriture atomique via extension `.tmp` dans `bake.py` garantissant l'intégrité absolue (Zéro corruption) des fichiers de sous-titres encodés.
-- Éradication des deux ultimes bugs systèmes sous Windows : `[WinError 32]` (File Lock) et `UnicodeDecodeError` (Pipeline UTF-8), garantissant la stabilité de `rover.py`.
+# État de reprise AmbiPlex
 
-### État Actuel
-- Le projet est stable, le mode WLEDSUB fonctionne parfaitement sans crash depuis l'interface Web ou via FFmpeg CLI. Aucun bug connu.
-- Le backend et l'architecture respectent intégralement les règles de développement, sans secrets en dur et avec un code nettoyé.
+Mise à jour : 2026-09-13.
 
-### Prochaines étapes exactes
-- L'utilisateur est prêt à créer un commit sur son dépôt Git.
-- Reprise standard du projet ou perfectionnement (ex: profilage, filtres avancés) si de nouveaux besoins matériels sont soulevés.
+## Changements prêts à être commités
+
+- Calcul commun des moyennes LED dans `color_sampling.py`, utilisé par
+  `led_engine.py` et `bake.py`, avec conservation des résultats RGB8.
+- Vérifications WLEDSUB mises en cache, décompression par blocs hors de la boucle
+  asyncio et contrôle du média après chargement.
+- Libération du memmap sous Windows et nettoyage lors de l'arrêt gracieux.
+- Monitoring : dernier état en attente par navigateur, événements conservés,
+  cache de géométrie des numéros et mises à jour DOM limitées.
+- Commandes MPV redondantes évitées en mode caché ; capture en pause conservée.
+- Rover : le curseur CPU ne recrée plus les composants de la fenêtre.
+- Sélection Plex stricte : session locale sans relais, nom maître respecté,
+  validation conjointe du lecteur et de la clé de session, aucun repli sur un
+  appareil non demandé.
+- Documentation corrigée et règles Git pour les fichiers générés complétées.
+
+## Validation
+
+- 26 tests Python réussis lors de la validation des optimisations et du filtre local.
+- 34 comparaisons exactes du canvas du simulateur sur écran large et mobile.
+- Six vidéos de calibration locales comparées à la version Git d'origine.
+- Essai local MPV réussi : capture 160x90, pause, recherche, vitesse et reprise.
+- Calcul LED : 1,410 à 0,490 ms/image ; préencodage : 1,264 à 0,331 ms/image.
+  Ces mesures excluent décodage vidéo, capture GPU et accès disque/réseau.
+
+Les tests utilisent la référence Git
+`81db0f00bcdf3cc94db47fc597fb028205fa72ab`. Conserver cet historique pour les
+réexécuter. Les vidéos de calibration sont locales, ignorées par Git ; leur test
+est ignoré explicitement si elles ou FFmpeg sont absents.
+
+Commandes et détails : [tests/README.md](tests/README.md).
+
+## Limites et prochaine vérification
+
+L'installation Plex-to-WLED physique reste à vérifier après redémarrage :
+lecture locale sur le lecteur maître, lecture distante simultanée, pause et reprise.
+Aucune session Plex n'était active lors du diagnostic du filtre local.
+
+Le nom maître correspond après normalisation des espaces, underscores et casse.
+Si le nom réel diffère, AmbiPlex attend au lieu de choisir un autre appareil.
+La qualification LAN dépend de Plex, notamment en présence de VPN.
+
+Le serveur web n'a pas d'authentification applicative. Le sender DDP actuel limite
+la sortie à 480 LED. FastAPI signale la dépréciation des handlers `on_event` ;
+une migration vers lifespan n'a pas été incluse dans ce lot.
+`stop.bat` force l'arrêt et peut contourner le nettoyage gracieux.
+
+Le commit est laissé à l'utilisateur. Les captures PNG de documentation et les
+tests sont intentionnels ; les secrets, vidéos, dépendances et caches restent locaux.

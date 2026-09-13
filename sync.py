@@ -23,6 +23,10 @@ class PlexSynchronizer:
         self.current_title = None
         self.current_media_path = None
         self.master_client_id = None
+        self.master_session_key = None
+        self._sessions_cache = []
+        self._sessions_checked_at = float('-inf')
+        self._waiting_for_client = None
         self.is_valid_media = False
         self.elastic_limit_ms = 2000
         self.log_callback = None
@@ -63,11 +67,9 @@ class PlexSynchronizer:
         self.plex_token = plex_token
         self.master_client_name = master_client_name
         self.master_client = master_client_name
-        self.is_playing = False
-        self.current_rating_key = None
-        self.current_title = None
-        self.current_media_path = None
-        self.master_client_id = None
+        self._release_master()
+        self._sessions_cache = []
+        self._sessions_checked_at = float('-inf')
         
         if self.notifier:
             try:
@@ -80,6 +82,91 @@ class PlexSynchronizer:
         self.connect()
         self.start_websocket_listener()
 
+    @staticmethod
+    def _normalize_client_name(name):
+        return ' '.join((name or '').casefold().replace('_', ' ').split())
+
+    @staticmethod
+    def _is_local_session(session):
+        player = getattr(session, 'player', None)
+        if player is None or getattr(player, 'local', False) is not True:
+            return False
+        if getattr(player, 'relayed', False):
+            return False
+        detail = getattr(session, 'session', None)
+        location = (getattr(detail, 'location', None) or '').lower()
+        # A Session element can be absent for playback that uses no bandwidth.
+        return location in ('', 'lan')
+
+    def _release_master(self):
+        self.master_client_id = None
+        self.master_session_key = None
+        self.is_playing = False
+        self.is_valid_media = False
+        self.current_rating_key = None
+        self.current_title = None
+        self.current_media_path = None
+        self.last_ping_time = None
+        self.last_ping_offset = 0
+        self.local_player_offset = 0
+
+    def _select_master_notification(self, notifications):
+        now = time.monotonic()
+        # This runs on the Plex listener thread, never on the LED frame loop.
+        if now - self._sessions_checked_at >= 1.0:
+            self._sessions_checked_at = now
+            self._sessions_cache = []
+            try:
+                self._sessions_cache = self.server.sessions()
+            except Exception:
+                self._release_master()
+                raise
+
+        target = self._normalize_client_name(self.master_client)
+        eligible = {}
+        for session in self._sessions_cache:
+            if session.type not in ('movie', 'episode', 'clip') or not self._is_local_session(session):
+                continue
+            player = session.player
+            if target and self._normalize_client_name(player.title) != target:
+                continue
+            client_id = player.machineIdentifier
+            session_key = getattr(session, 'sessionKey', None)
+            if client_id and session_key is not None:
+                eligible[(client_id, str(session_key))] = session
+
+        current = (self.master_client_id, self.master_session_key)
+        if self.master_client_id and current not in eligible:
+            self._log('info', 'Session locale terminee ou non admissible : synchronisation liberee.')
+            self._release_master()
+            current = (None, None)
+
+        if not eligible:
+            if self._waiting_for_client != target:
+                label = self.master_client if target else 'un lecteur local'
+                self._log('info', f'En attente de {label} : aucune session locale admissible.')
+                self._waiting_for_client = target
+            return None
+        self._waiting_for_client = None
+
+        candidates = []
+        for info in notifications:
+            key = info.get('sessionKey')
+            identity = (info.get('clientIdentifier'), str(key) if key is not None else None)
+            if identity in eligible:
+                candidates.append((info, identity))
+        if not candidates:
+            return None
+
+        # Preserve a playing local session when multiple tabs report together.
+        info, identity = min(candidates, key=lambda item: (
+            item[0].get('state') != 'playing', item[1] != current))
+        if identity != current:
+            self._release_master()
+            self.master_client_id, self.master_session_key = identity
+            self._log('info', f'Lecteur local selectionne : {eligible[identity].player.title}')
+        return info
+
     def _on_plex_message(self, message):
         try:
             msg_type = message.get('type')
@@ -87,79 +174,14 @@ class PlexSynchronizer:
             if msg_type == 'playing':
                 play_sessions = message.get('PlaySessionStateNotification', [])
                 
-                if not self.master_client_id:
-                    active_players = []
-                    target_client = getattr(self, 'master_client', '').lower().replace('_', ' ')
-                    
-                    # Trier les sessions pour prioriser celles qui sont en cours de lecture ("playing")
-                    # car si l'utilisateur a 2 onglets Firefox, on veut celui qui joue le film !
-                    sorted_sessions = []
-                    for session in self.server.sessions():
-                        if session.player:
-                            state = getattr(session.player, 'state', '').lower()
-                            if state == 'playing':
-                                sorted_sessions.insert(0, session)
-                            else:
-                                sorted_sessions.append(session)
-                                
-                    # 1. Essayer de trouver le client maître spécifique
-                    for session in sorted_sessions:
-                        if session.player:
-                            title = session.player.title
-                            ip_addr = getattr(session.player, 'address', '')
-                            is_local_flag = getattr(session.player, 'local', False)
-                            is_lan = is_local_flag or ip_addr.startswith('192.168.') or ip_addr.startswith('10.') or ip_addr.startswith('127.')
-                            
-                            active_players.append(f"{title} (LAN: {is_lan}, State: {getattr(session.player, 'state', '')})")
-                            
-                            if is_lan and session.type in ['movie', 'episode', 'clip']:
-                                # Match flexible sur le nom
-                                title_clean = title.lower().replace('_', ' ')
-                                if target_client and target_client in title_clean:
-                                    self.master_client_id = session.player.machineIdentifier
-                                    self._log("info", f"Flux LOCAL accroché sur le lecteur désigné : {title} ({ip_addr})")
-                                    break
-                                elif not target_client:
-                                    self.master_client_id = session.player.machineIdentifier
-                                    self._log("info", f"Flux LOCAL accroché (par défaut) : {title} ({ip_addr})")
-                                    break
-                                    
-                    # 2. Si non trouvé par nom, prendre le premier flux local
-                    if not self.master_client_id and target_client:
-                        for session in sorted_sessions:
-                            if session.player:
-                                ip_addr = getattr(session.player, 'address', '')
-                                is_local_flag = getattr(session.player, 'local', False)
-                                is_lan = is_local_flag or ip_addr.startswith('192.168.') or ip_addr.startswith('10.') or ip_addr.startswith('127.')
-                                if is_lan and session.type in ['movie', 'episode', 'clip']:
-                                    self.master_client_id = session.player.machineIdentifier
-                                    self._log("info", f"Lecteur cible non trouvé, utilisation du premier lecteur LOCAL : {session.player.title}")
-                                    break
-                    
-                    if not self.master_client_id:
-                        if active_players:
-                            self._log("info", f"En attente d'un flux vidéo en LOCAL... Lecteurs actifs : {', '.join(active_players)}")
-                        return
-
-                valid_session = None
-                # Si l'utilisateur a deux onglets de lecture dans le même navigateur, 
-                # ils partagent le même clientIdentifier. Il faut prioriser celui qui est en cours de lecture.
-                for session_info in play_sessions:
-                    if session_info.get('clientIdentifier') == self.master_client_id:
-                        if session_info.get('state') == 'playing':
-                            valid_session = session_info
-                            break
-                        elif not valid_session:
-                            valid_session = session_info
+                valid_session = self._select_master_notification(play_sessions)
 
                 if not valid_session:
                     if self.is_playing and getattr(self, 'last_ping_time', None):
                         # Timeout de 15s si on ne reçoit plus de ping pour ce lecteur
                         if time.time() - self.last_ping_time > 15:
                             self._log("info", "Lecture arrêtée (timeout sans ping).")
-                            self.is_playing = False
-                            self.current_rating_key = None
-                            self.current_media_path = None
+                            self._release_master()
                     return
 
                 state = valid_session.get('state')
@@ -167,8 +189,9 @@ class PlexSynchronizer:
                     if self.is_playing:
                         self._log("info", "Lecture arrêtée (signal stopped).")
                         self.is_playing = False
-                    self.current_rating_key = None
-                    self.current_media_path = None
+                    self._release_master()
+                    self._sessions_cache = []
+                    self._sessions_checked_at = float('-inf')
                     return
                     
                 view_offset = valid_session.get('viewOffset', 0)

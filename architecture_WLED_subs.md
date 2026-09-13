@@ -1,86 +1,99 @@
-# Architecture : WLED Subtitles (Pistes de Métadonnées LED)
+# Architecture WLED Subtitles
 
-## 1. Concept Général
-Le projet évolue d'un paradigme de "Capture d'écran en Temps Réel" (CPU/GPU intensif, synchronisation élastique difficile) vers un système de **Piste de Métadonnées Pré-calculées**. 
-Le concept est de scanner le film hors-ligne une seule fois pour produire un fichier ultra-léger contenant les couleurs pré-rendues. À la lecture, le serveur se contente de lire les octets correspondants au *timestamp* Plex et de les envoyer via UDP.
+État implémenté au 2026-09-13. Ce document remplace les propositions initiales.
 
-### Avantages :
-- **0% utilisation CPU/GPU** lors de la lecture.
-- **Synchronisation absolue (O(1))** : Accès direct au bon moment, sans élasticité.
-- **Indépendance de la plateforme** : Le lecteur n'a plus besoin d'accélération matérielle.
+## Objectif
 
----
+Précalculer les couleurs d'une vidéo pour éviter son décodage par MPV à chaque
+lecture. La piste est spécifique aux dimensions LED et à la profondeur de capture
+choisies. Elle ne constitue pas un format indépendant du matériel.
 
-## 2. Le Format de Fichier Universel (`.wledsub.lz4`)
-Le fichier DOIT être "Future-Proof" et indépendant du nombre physique de LEDs de l'utilisateur.
+Le fichier final `.wledsub.lz4` est compressé avec LZ4. Le cache de lecture est
+décompressé sur disque puis mappé avec NumPy. La décompression, le routage, le
+lissage et les communications consomment toujours des ressources.
 
-### 2.1 La Résolution Spécifique au Matériel (Hardware-Specific)
-Le fichier n'est pas universel. Il est encodé ("Baked") avec les dimensions physiques exactes de la télévision de l'utilisateur.
-Exemple pour une configuration 64x36 :
-- **Haut / Bas** : 64 zones (chacun)
-- **Gauche / Droite** : 36 zones (chacun)
-Total = 200 LEDs.
+## Format version 0003
 
-### 2.2 Structure Binaire (Raw `uint16` - RGB565)
-Pour permettre une lecture instantanée (zéro charge mémoire, utilisation de `numpy.memmap`), le fichier N'EST PAS compressé. Afin d'économiser 33% d'espace disque sans perte visible, les couleurs utilisent le format RGB565 (16-bit) au lieu du format RGB888 (24-bit).
+Le flux décompressé commence par un en-tête de 32 octets, encodé avec
+`struct.pack('<4s4sfIHH12x', ...)` :
 
-- **Entête (Header)** : 32 octets.
-  - `[4 octets]` Signature (WLED)
-  - `[4 octets]` Version (0003)
-  - `[4 octets]` FPS du film (float)
-  - `[4 octets]` Total Frames (uint32)
-  - `[2 octets]` LEDs X (Largeur)
-  - `[2 octets]` LEDs Y (Hauteur)
-  - `[12 octets]` Padding
-- **Corps (Payload)** : Séquence continue d'octets.
-  - Chaque trame (frame) = `(X*2 + Y*2) * 2 octets (RGB565)`. Pour 64x36 = **400 octets**.
-  - Si le film est à 24 FPS : 1 seconde = 9 600 octets.
-  - Film de 2 heures = **~69 Mo** (Non-compressé).
+| Champ | Taille | Valeur |
+| --- | --- | --- |
+| Signature | 4 octets | `WLED` |
+| Version | 4 octets | `0003` |
+| Fréquence | 4 octets | float32 |
+| Nombre théorique de trames | 4 octets | uint32 |
+| LED horizontales X | 2 octets | uint16 |
+| LED verticales Y | 2 octets | uint16 |
+| Réserve | 12 octets | zéros |
 
----
+Chaque trame contient `2 * (X + Y)` valeurs RGB565 de 16 bits, dans l'ordre
+haut gauche-droite, droite haut-bas, bas droite-gauche, gauche bas-haut.
+Le code actuel écrit/lit le payload en `np.uint16` natif, little-endian sur la
+plateforme Windows utilisée ; il ne faut pas présumer sa portabilité big-endian.
 
-## 3. Le Processus de Création ("Le Bake")
-Un nouveau script autonome (`bake.py`) sera créé.
+Pour 64x36 LED, une trame représente 400 octets. Deux heures à 24 images/s
+représentent 69 120 000 octets de payload décompressé. La taille LZ4 dépend du contenu.
 
-### Étapes du Bake :
-1. L'utilisateur lance `python bake.py "MonFilm.mkv"`.
-2. Le script télécharge automatiquement `ffmpeg.exe` (si manquant) et l'utilise en arrière-plan (via des pipes mémoire) pour décoder le film à vitesse maximale (Tone-Mapping HDR via zscale).
-3. Le paramètre de profondeur (`led_depth`) est **figé à 10%** (le "sweet spot" Ambilight).
-4. L'auto-crop dynamique détecte les bandes noires et est "baked in".
-5. Les couleurs des zones sont écrites séquentiellement dans `MonFilm.wledsub.lz4` avec une compression LZ4. LZ4 est l'algorithme le plus rapide au monde en décompression (vitesse de 3 à 5 Go/s), ce qui garantit une extraction Juste-à-Temps instantanée (en dépit d'une efficacité de compression un peu moindre que GZIP).
-   - **Taille Finale (LZ4)** : Entre 15 et 25 Mo au total !
+Le RGB565 réduit la précision par rapport au RGB888 : rouge et bleu sur 5 bits,
+vert sur 6 bits. La lecture restitue ces valeurs par décalage de bits, conformément
+au moteur existant. L'optimisation des moyennes ne change pas cette conversion.
 
----
+## Création
 
-## 4. Le Processus de Lecture (Intégration `web.py`)
-La boucle principale `background_sync_loop` de `web.py` subira un refactoring hybride.
-
-### 4.1 Logique de bascule et Extraction "Juste-à-Temps" (JIT)
-Quand Plex signale la lecture de `MonFilm.mkv` :
-1. Le serveur cherche `MonFilm.wledsub.lz4` (ou utilise le `RatingKey` Plex comme nom de cache, ex: `cache/12345.wledsub.lz4`).
-2. **Handshake de Sécurité** : Le serveur lit les 32 octets de l'entête. Si `leds_x` et `leds_y` ne correspondent pas aux paramètres actuels de l'UI Web, il refuse le fichier et retourne en Temps Réel.
-3. **S'il existe et est compatible** : Le serveur décompresse instantanément le fichier LZ4 (vitesse ~4000 Mo/s) vers un fichier cache non-compressé `Y:\AmbiPlex\cache\active_movie.wledsub_raw`. 
-4. *Note Caching* : Il ne conserve qu'un seul fichier non compressé à la fois. Si un nouveau film est demandé, le fichier `active_movie.wledsub_raw` est simplement écrasé.
-5. Mode "Subtitle" : Le fichier Raw décompressé est mappé en mémoire via `numpy.memmap`.
-6. **S'il n'existe pas ou est incompatible** : Mode "Temps Réel". Le système classique avec MPV prend le relais.
-
-### 4.2 La Lecture Instantanée (Memmap)
-En mode "Subtitle" (sur le fichier temporaire Raw) :
-```python
-# 1. Obtenir le temps de Plex
-temps_ms = sync_instance.current_view_offset
-# 2. Calculer l'index de la trame
-frame_index = int((temps_ms / 1000.0) * FPS)
-# 3. Extraire les 480 couleurs instantanément depuis le disque
-couleurs_virtuelles = memmap_array[frame_index]
+```powershell
+venv\Scripts\python.exe bake.py "D:\Movies\Film.mkv" --leds-x 64 --leds-y 36 --depth 8 --threads 0
 ```
 
-### 4.3 Fin du Downscaling
-Puisque le fichier est créé sur-mesure pour la TV physique, le serveur n'a plus à faire de calculs Numpy de redimensionnement (`downscale`). Il extrait la trame et la pousse en UDP vers WLED. Les paramètres `offset` et `direction` peuvent toujours être gérés, car ils ne font qu'appliquer une simple rotation circulaire (`np.roll`) sur le tableau final sans en changer la taille.
+- `bake.py` cherche FFmpeg localement, puis dans PATH, puis télécharge un binaire
+  Windows si aucun n'est disponible.
+- FFmpeg réduit les images à 160x90 avec conservation du ratio et ajout de bandes.
+  Le traitement HDR utilise zscale et tonemap ; un échec initial peut déclencher
+  le filtre de repli sans ce traitement.
+- La profondeur est un paramètre, 8 % par défaut en CLI. Le recadrage est précalculé.
+- `color_sampling.py` calcule les moyennes de segments avant conversion RGB565.
+- Le résultat est écrit dans `Film.wledsub.lz4.tmp`, puis renommé en fichier final.
+  Le code supprime d'abord un ancien fichier final : ce remplacement n'est donc
+  pas une transaction atomique garantie en cas d'interruption.
 
----
+La limitation des threads et l'affinité CPU concernent le processus FFmpeg.
+Les calculs Python du préencodage restent également à prendre en compte.
 
-## 5. Résumé des Nouveaux Fichiers / Modifications
-- `[NEW] bake.py` : Script CLI autonome (utilisant FFmpeg) pour analyser un film et générer le `.wledsub.lz4`.
-- `[MODIFY] led_engine.py` : Ajout d'une fonction `downscale_virtual_to_physical(virtual_colors, config)`.
-- `[MODIFY] web.py` : Implémentation du lecteur `Memmap` et de la condition `if has_wled_file()`.
+## Lecture et cache
+
+1. Chercher la piste portant le même nom que la vidéo, avec l'extension
+   `.wledsub.lz4`. Aucun chemin alternatif basé sur le RatingKey n'est implémenté.
+2. Vérifier signature, version et dimensions LED. En cas d'absence ou
+   d'incompatibilité, utiliser le rendu MPV en temps réel.
+3. Décompresser le payload par blocs de 1 MiB vers `cache/active_movie.wledsub_raw`,
+   hors de la boucle asyncio du serveur.
+4. Calculer le nombre réel de trames d'après la taille du payload, puis créer
+   le memmap. L'en-tête théorique ne détermine pas la taille du mapping.
+5. Lire `int(temps_ms / 1000 * fps)`, borné à la première ou dernière trame.
+   Une copie de cette petite trame permet de libérer le mapping sous Windows
+   lors du changement de film.
+6. Convertir en RGB888, appliquer les réglages dynamiques et envoyer en DDP.
+
+Les vérifications sont mises en cache par média et dimensions. Taille et dates
+du fichier sont revérifiées environ une fois par seconde pendant la lecture.
+Un fichier absent ou incompatible peut donc être détecté après sa création ou
+son remplacement, sans être rouvert à chaque image.
+
+Le serveur attend le résultat du chargement avant de reprendre le rendu et vérifie
+que le média et les réglages n'ont pas changé pendant l'attente. L'interface web
+reste disponible durant la décompression. Une annulation attend la fin du worker
+avant le nettoyage du lecteur.
+
+## Réglages dynamiques
+
+Luminosité par côté, lissage, point de départ, sens et décalages restent appliqués
+à chaque cycle. Les décalages de côté insèrent du noir ; ce ne sont pas des
+rotations circulaires. Profondeur de capture et recadrage nécessitent un nouveau
+préencodage pour changer les couleurs stockées.
+
+Le rafraîchissement WLEDSUB suit actuellement le réglage de fréquence de l'application,
+pas automatiquement la fréquence stockée dans la piste. Le format DDP courant
+limite la sortie à 480 LED par paquet.
+
+Voir [les tests de non-régression](tests/README.md) pour les vérifications de
+conversion, de rendu et de cycle de vie.

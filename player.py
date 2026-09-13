@@ -29,6 +29,9 @@ class SlavePlayer:
     def __init__(self, headless=True):
         self.headless = headless
         self.current_file = None
+        self._pause_state = None
+        self._speed_state = None
+        self._cache_controls = False
         
         # Options strictes requises par l'architecture
         kwargs = {
@@ -55,10 +58,23 @@ class SlavePlayer:
 
         try:
             self.player = mpv.MPV(**kwargs)
+            if headless:
+                try:
+                    self.player.observe_property('pause', self._control_changed)
+                    self.player.observe_property('speed', self._control_changed)
+                    self._cache_controls = True
+                except Exception:
+                    pass  # Keep unconditional commands if observation is unavailable.
             logger.info(f"Lecteur MPV initialisé avec succès (Headless: {headless})")
         except Exception as e:
             logger.error(f"Erreur fatale d'initialisation MPV. Le fichier libmpv-2.dll est-il présent dans le dossier ? Erreur : {e}")
             raise
+
+    def _control_changed(self, name, value):
+        if name == 'pause':
+            self._pause_state = value
+        elif name == 'speed':
+            self._speed_state = value
 
     def _mpv_log(self, loglevel, component, message):
         if loglevel in ['error', 'fatal']:
@@ -70,6 +86,8 @@ class SlavePlayer:
             return False
 
         self.current_file = filepath
+        self._pause_state = None
+        self._speed_state = None
         logger.info(f"Chargement dans MPV : {filepath} à {start_time_ms}ms")
         self.player.play(filepath)
         self.player.wait_until_playing()
@@ -80,10 +98,14 @@ class SlavePlayer:
         return True
             
     def play(self):
-        self.player.pause = False
+        if not self._cache_controls or self._pause_state is not False:
+            self.player.pause = False
+            self._pause_state = False
 
     def pause(self):
-        self.player.pause = True
+        if not self._cache_controls or self._pause_state is not True:
+            self.player.pause = True
+            self._pause_state = True
 
     def capture_frame(self, width=160, height=90):
         try:
@@ -108,11 +130,14 @@ class SlavePlayer:
 
     def set_speed(self, speed: float):
         if speed and 0.5 <= speed <= 2.0:
-            self.player.speed = speed
+            if not self._cache_controls or self._speed_state != speed:
+                self.player.speed = speed
+                self._speed_state = speed
 
     def get_offset_ms(self) -> int:
-        if self.player.time_pos is not None:
-            return int(self.player.time_pos * 1000)
+        position = self.player.time_pos
+        if position is not None:
+            return int(position * 1000)
         return 0
 
     def get_dropped_frames(self) -> int:
