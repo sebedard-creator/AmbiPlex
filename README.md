@@ -5,15 +5,19 @@
 AmbiPlex synchronizes an addressable LED strip with a local Plex video player,
 using a WLED-compatible controller. The interface and application logs are in French.
 
+**AmbiPlex works in real time with MPV: no WLED Subtitles or preencoding are required.**
+Configure your Plex player and LEDs, then play a video. WLED Subtitles are an
+optional way to reduce CPU/GPU work by calculating a video's LED colors in advance.
+
 ## Features
 
 - Local Plex playback selection with a configurable master player.
-- Real-time fallback using an invisible MPV window and 160x90 RGB capture.
+- Real-time LED rendering using an invisible MPV window and 160x90 RGB capture.
 - Black-bar detection, per-side brightness, temporal smoothing, LED routing and offsets.
-- Precomputed `.wledsub.lz4` tracks that bypass MPV and video decoding during playback.
+- Optional WLED Subtitles (`.wledsub.lz4`) that bypass MPV and video decoding during playback.
 - Shared NumPy segment sampling for real-time processing and preencoding.
 - DDP output to WLED, a web simulator and live monitoring over SSE.
-- A web encoder and the Windows Rover application for sequential batch encoding.
+- A web encoder and the Windows Rover application for optional batch preencoding.
 
 ## Requirements
 
@@ -21,8 +25,10 @@ using a WLED-compatible controller. The interface and application logs are in Fr
 - A Plex server and a Plex client on the local network.
 - Video paths reported by Plex must be accessible from the AmbiPlex computer.
 - A WLED-compatible controller and addressable LEDs.
-- FFmpeg for preencoding. The encoder checks the project directory and PATH,
-  then downloads a Windows build if none is available.
+
+FFmpeg is needed **only for optional preencoding**, not for real-time playback.
+The encoder checks the project directory and PATH, then downloads a Windows build
+if none is available.
 
 ## Installation
 
@@ -42,6 +48,9 @@ using a WLED-compatible controller. The interface and application logs are in Fr
 3. Enter the WLED address, horizontal/vertical LED counts and strip routing.
 4. Start local playback and adjust the LED settings and synchronization offset.
 
+MPV extracts the LED colors automatically during playback. You do not need to
+prepare your videos or generate any additional files.
+
 When a master name is set, AmbiPlex waits for that player instead of selecting
 another device. An empty name enables automatic selection among verified local
 video sessions. Remote and relayed sessions are rejected; a private IP address
@@ -53,7 +62,10 @@ Restart AmbiPlex after source-code updates. Closing the server gracefully releas
 the reader, MPV and network resources. `stop.bat` uses forced termination, so it
 does not guarantee that graceful cleanup runs.
 
-## Precomputed LED Tracks
+## Optional: WLED Subtitles
+
+Skip this section to use real-time rendering. To reduce CPU/GPU work during
+playback, you can optionally precompute LED tracks for selected videos.
 
 Open the web encoder, or run `start_rover.bat` for batch encoding. The CLI is also available:
 
