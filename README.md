@@ -17,8 +17,8 @@ the same LED engine used for Plex, with your existing layout, brightness,
 smoothing and routing.
 
 > **Tested on a real Xbox Series X and WLED setup.**
-> The project owner confirmed matching colors and **no perceptible lighting
-> delay**, with the TV **remaining in Dolby Vision** during Remote Play.
+> In testing, colors matched with **no perceptible lighting delay**, and the
+> TV **remained in Dolby Vision** during Remote Play.
 > These are observations from the tested setup, not a measured zero-latency
 > result or a guarantee for every TV, PC and network.
 
@@ -219,7 +219,7 @@ See [test instructions and results](tests/README.md).
 | LED simulator | 34 exact canvas comparisons against the reference implementation. |
 | Remote Play browser pipeline | Synthetic colors, lifecycle, static scenes, backpressure and return-to-Plex checks passed. |
 | Shared web interface | 12 layouts tested across 320, 390, 768 and 1440 pixels. |
-| Physical Xbox Series X + WLED | Confirmed working by the project owner, with no perceptible delay and TV Dolby Vision retained in that setup. |
+| Physical Xbox Series X + WLED | Matching colors, no perceptible delay and TV Dolby Vision retained in the tested setup. |
 | Physical Plex local/remote selection | End-to-end verification after the selection changes remains outstanding. |
 
 These results do not establish universal hardware compatibility or zero latency.
