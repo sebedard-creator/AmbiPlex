@@ -3,227 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AmbiPlex</title>
-    <link rel="stylesheet" href="/static/style.css?v=2">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>AmbiPlex | Plex</title>
+    <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
-    <div class="glass-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin-bottom: 0;">AmbiPlex Dashboard</h1>
-            <a href="/encoder" class="btn" style="text-decoration: none; background: #2ea043; padding: 10px 20px;">🎬 Encodeur WLED Subtitles</a>
-        </div>
-        
-        <div class="grid">
-            <div class="card">
-                <h2>Configuration Plex</h2>
-                <form id="configForm">
-                    <div class="input-group">
-                        <label>Plex URL</label>
-                        <input type="text" id="plex_url" placeholder="http://127.0.0.1:32400" required>
-                    </div>
-                    <div class="input-group">
-                        <label>Plex Token</label>
-                        <input type="password" id="plex_token" placeholder="YOUR_TOKEN" required>
-                    </div>
-                    <div class="input-group">
-                        <label>Master Client Name</label>
-                        <input type="text" id="master_client" placeholder="Sony Bravia" required>
-                    </div>
-                    <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border);">
-                        <label for="preset_select">Profil de Synchro Actif (Auto-détecté)</label>
-                        <select id="preset_select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--bg-color); color: var(--primary); font-weight: bold;">
-                            <option value="">-- Lancez un film d'abord --</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;">
-                        <input type="number" id="sync_offset" value="0" step="1">
-                        <label for="sync_offset" style="margin-bottom: 0;">Offset de Calibration (Frames à 24 FPS) - <span style="font-size: 0.8em; opacity: 0.7;">En attente de connexion Plex</span></label>
-                    </div>
-                    <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="headless" checked style="width: 20px; height: 20px; accent-color: var(--primary);">
-                        <label for="headless" style="margin-bottom: 0;">Mode Headless (Cacher la fenêtre MPV)</label>
-                    </div>
-                    <button type="submit" id="btn_save" class="btn" style="grid-column: 1 / -1; margin-top: 10px;">Sauvegarder Plex & Offset</button>
-                </form>
-                <div id="saveMsg" class="success-msg hidden">Configuration sauvegardée ! Le module se reconnecte...</div>
-            </div>
-
-            <div class="card status-board">
-                <h2>Live Monitoring</h2>
-                <div class="status-item">
-                    <span>État (Plex)</span>
-                    <span id="status_state" class="badge paused">PAUSED</span>
+<main class="app-shell">
+    <header class="app-header">
+        <div><a href="/">AmbiPlex</a><h1>Plex</h1></div>
+        <nav class="page-nav" aria-label="Navigation principale">
+            <a href="/remote" class="btn">Remote Play</a>
+            <a href="/encoder" class="btn">Encodeur WLED Subtitles</a>
+        </nav>
+    </header>
+    <div class="top-grid">
+        <section class="section">
+            <h2>Connexion et synchronisation</h2>
+            <form id="configForm">
+                <div class="field"><label for="plex_url">Adresse du serveur Plex</label><input type="text" id="plex_url" placeholder="http://127.0.0.1:32400" required></div>
+                <div class="field-row">
+                    <div class="field"><label for="plex_token">Jeton Plex</label><input type="password" id="plex_token" placeholder="Jeton d’accès" required></div>
+                    <div class="field"><label for="master_client">Lecteur local</label><input type="text" id="master_client" placeholder="Sony Bravia" required></div>
                 </div>
-                <div class="status-item">
-                    <span>Offset (Plex)</span>
-                    <span id="status_offset" class="value">0 ms</span>
-                </div>
-                <div class="status-item">
-                    <span>Offset (MPV)</span>
-                    <span id="status_local_offset" class="value" style="color: var(--primary);">0 ms</span>
-                </div>
-                <div class="status-item">
-                    <span>Vitesse Corrective (MPV)</span>
-                    <span id="status_action" class="value">WAIT</span>
-                </div>
-                <div class="status-item">
-                    <span>Dropped Frames (Décodeur)</span>
-                    <span id="status_dropped" class="value" style="color: #f39c12;">0</span>
-                </div>
-                <div class="status-item">
-                    <span>Auto-Crop (Lignes actives)</span>
-                    <span id="status_crop" class="value" style="color: #3498db;">0 à 90</span>
-                </div>
-                <div class="console" id="console">
-                    <div class="log">En attente de connexion SSE...</div>
-                </div>
-            </div>
-            
-            <div class="card" style="grid-column: 1 / -1;">
-                <h2>Calibration LEDs & Simulateur</h2>
-                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <form id="ledForm">
-                            <div class="input-group">
-                                <label>Adresse IP WLED</label>
-                                <input type="text" id="wled_ip" placeholder="ex: 192.168.1.100">
-                            </div>
-                            <div style="display: flex; gap: 10px;">
-                                <div class="input-group" style="flex: 1;">
-                                    <label>LEDs Haut/Bas</label>
-                                    <input type="number" id="leds_top" value="50" min="0">
-                                </div>
-                                <div class="input-group" style="flex: 1;">
-                                    <label>LEDs Gauche/Droite</label>
-                                    <input type="number" id="leds_side" value="30" min="0">
-                                </div>
-                            </div>
-                            <div class="input-group">
-                                <label for="led_start_pos">Point de Départ (LED 0)</label>
-                                <select id="led_start_pos" style="width: 100%; padding: 0.5rem; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;">
-                                    <option value="top_left">En haut à gauche</option>
-                                    <option value="top_right">En haut à droite</option>
-                                    <option value="bottom_right">En bas à droite</option>
-                                    <option value="bottom_left">En bas à gauche</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label for="led_direction">Sens de Rotation</label>
-                                <select id="led_direction" style="width: 100%; padding: 0.5rem; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;">
-                                    <option value="clockwise">Sens Horaire ↻</option>
-                                    <option value="counter_clockwise">Sens Anti-Horaire ↺</option>
-                                </select>
-                            </div>
-                            <div class="input-group tooltip-container">
-                                <label style="display: flex; align-items: center; cursor: pointer;">
-                                    <input type="checkbox" id="disable_autocrop" style="width: auto; margin-right: 10px; accent-color: var(--primary);">
-                                    Désactiver l'Auto-Crop
-                                    <span class="info-icon" style="margin-left: 5px;">?</span>
-                                    <div class="tooltip">Désactive la détection et la suppression automatiques des bandes noires (utile pour diagnostiquer des clignotements).</div>
-                                </label>
-                            </div>
-                            <div class="input-group tooltip-container">
-                                <label>
-                                    Profondeur de Capture <span id="led_depth_val" style="float: right; color: var(--primary);">8%</span>
-                                    <span class="info-icon">?</span>
-                                    <div class="tooltip">Détermine la largeur de la bordure analysée sur l'image pour extraire les couleurs (1% = fin, 50% = moitié de l'écran).</div>
-                                </label>
-                                <input type="range" id="led_depth" min="1" max="50" value="8" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_depth_val').innerText = this.value + '%'">
-                            </div>
-                            <div class="input-group tooltip-container">
-                                <label>
-                                    Marge des Coins <span id="led_corner_gap_val" style="float: right; color: var(--primary);">0%</span>
-                                    <span class="info-icon">?</span>
-                                    <div class="tooltip">Augmente cette valeur si tes bandes LED ne vont pas jusqu'au bout des coins de la télévision.</div>
-                                </label>
-                                <input type="range" id="led_corner_gap" min="0" max="25" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_corner_gap_val').innerText = this.value + '%'">
-                            </div>
-                            <div class="input-group tooltip-container">
-                                <label>
-                                    Lissage Temporel <span id="led_smoothing_val" style="float: right; color: var(--primary);">65%</span>
-                                    <span class="info-icon">?</span>
-                                    <div class="tooltip">Plus la valeur est élevée, plus les transitions de couleurs seront douces (évite l'effet stroboscope).</div>
-                                </label>
-                                <input type="range" id="led_smoothing" min="0" max="100" value="65" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_smoothing_val').innerText = this.value + '%'">
-                            </div>
-
-                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
-                            <h3 style="font-size: 1.1rem; font-weight: 500; margin-bottom: 1rem; color: var(--text-primary);">Décalage Fin (Offset LED)</h3>
-                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                                Décalez les couleurs physiquement sur les rubans pour compenser un positionnement asymétrique.
-                            </p>
-                            <div class="input-group">
-                                <label>Haut (Top) <span id="offset_top_val" style="float: right; color: var(--primary);">0</span></label>
-                                <input type="range" id="offset_top" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_top_val').innerText = this.value">
-                            </div>
-                            <div class="input-group">
-                                <label>Droite (Right) <span id="offset_right_val" style="float: right; color: var(--primary);">0</span></label>
-                                <input type="range" id="offset_right" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_right_val').innerText = this.value">
-                            </div>
-                            <div class="input-group">
-                                <label>Bas (Bottom) <span id="offset_bottom_val" style="float: right; color: var(--primary);">0</span></label>
-                                <input type="range" id="offset_bottom" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_bottom_val').innerText = this.value">
-                            </div>
-                            <div class="input-group">
-                                <label>Gauche (Left) <span id="offset_left_val" style="float: right; color: var(--primary);">0</span></label>
-                                <input type="range" id="offset_left" min="-15" max="15" value="0" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('offset_left_val').innerText = this.value">
-                            </div>
-
-                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                                <h3 style="font-size: 1.1rem; font-weight: 500; margin: 0; color: var(--text-primary);">Luminosité Individuelle</h3>
-                                <button type="button" id="brightness_lock_btn" class="btn" style="background: var(--primary); padding: 5px 10px; font-size: 0.9em; min-width: 100px;">
-                                    <span id="brightness_lock_icon">🔒</span> <span id="brightness_lock_text">Liés</span>
-                                </button>
-                            </div>
-                            <div class="input-group">
-                                <label>Haut (Top) <span id="led_brightness_top_val" style="float: right; color: var(--primary);">100%</span></label>
-                                <input type="range" id="led_brightness_top" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_top_val').innerText = this.value + '%'">
-                            </div>
-                            <div class="input-group">
-                                <label>Droite (Right) <span id="led_brightness_right_val" style="float: right; color: var(--primary);">100%</span></label>
-                                <input type="range" id="led_brightness_right" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_right_val').innerText = this.value + '%'">
-                            </div>
-                            <div class="input-group">
-                                <label>Bas (Bottom) <span id="led_brightness_bottom_val" style="float: right; color: var(--primary);">100%</span></label>
-                                <input type="range" id="led_brightness_bottom" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_bottom_val').innerText = this.value + '%'">
-                            </div>
-                            <div class="input-group">
-                                <label>Gauche (Left) <span id="led_brightness_left_val" style="float: right; color: var(--primary);">100%</span></label>
-                                <input type="range" id="led_brightness_left" min="0" max="100" value="100" style="width: 100%; accent-color: var(--primary);" oninput="document.getElementById('led_brightness_left_val').innerText = this.value + '%'">
-                            </div>
-
-                            <div class="input-group tooltip-container">
-                                <label>
-                                    Rafraîchissement (FPS) <span id="led_refresh_rate_val" style="float: right; color: var(--primary);">20</span>
-                                    <span class="info-icon">?</span>
-                                    <div class="tooltip">Fréquence d'envoi vers les LEDs. Trop haut = surcharge Wi-Fi. 20-25 recommandé.</div>
-                                </label>
-                                <div style="display: flex; gap: 10px; align-items: center;">
-                                    <input type="range" id="led_refresh_rate" min="10" max="30" value="20" style="flex: 1; accent-color: var(--primary);" oninput="document.getElementById('led_refresh_rate_val').innerText = this.value; document.getElementById('led_refresh_native').checked = false;">
-                                    <label style="margin-bottom: 0; display: flex; align-items: center; gap: 5px; font-size: 0.85em; white-space: nowrap; font-weight: normal;">
-                                        <input type="checkbox" id="led_refresh_native" style="width: 16px; height: 16px; accent-color: var(--primary);" onchange="if(this.checked) document.getElementById('led_refresh_rate_val').innerText = 'Natif'">
-                                        Natif
-                                    </label>
-                                </div>
-                            </div>
-                            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                                <button type="submit" class="btn" style="flex: 2;">Appliquer la Calibration</button>
-                                <button type="button" class="btn" style="flex: 1; background: #e74c3c;" onclick="fetch('http://' + document.getElementById('wled_ip').value + '/win&T=0', {mode: 'no-cors'})">Éteindre</button>
-                            </div>
-                        </form>
-                    </div>
-                    
-                    <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 20px;">
-                        <canvas id="ledSimulator" width="400" height="225" style="background: #111; border: 2px solid var(--border); border-radius: 4px; box-shadow: 0 0 30px rgba(0,0,0,0.8);"></canvas>
-                        <p style="margin-top: 10px; font-size: 0.9em; opacity: 0.7;">Simulation en temps réel (DDP)</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+                <div class="field"><label for="preset_select">Profil de synchronisation</label><select id="preset_select"><option value="">Aucun profil actif</option></select></div>
+                <div class="field"><label for="sync_offset">Décalage (images à 24 fps)</label><input type="number" id="sync_offset" value="0" step="1"></div>
+                <label class="check-label" for="headless"><input type="checkbox" id="headless" checked>Fenêtre MPV masquée</label>
+                <button type="submit" id="btn_save" class="btn-primary">Enregistrer</button>
+            </form>
+            <p id="saveMsg" class="success-msg hidden" role="status">Configuration enregistrée.</p>
+        </section>
+        <section class="section status-board">
+            <h2>Suivi en direct</h2>
+            <div class="status-item"><span>État</span><span id="status_state" class="badge paused">EN ATTENTE</span></div>
+            <div class="status-item"><span>Position Plex</span><span id="status_offset" class="value">0 ms</span></div>
+            <div class="status-item"><span>Position MPV</span><span id="status_local_offset" class="value">0 ms</span></div>
+            <div class="status-item"><span>Correction MPV</span><span id="status_action" class="value">WAIT</span></div>
+            <div class="status-item"><span>Images perdues</span><span id="status_dropped" class="value">0</span></div>
+            <div class="status-item"><span>Lignes actives</span><span id="status_crop" class="value">0 à 90</span></div>
+            <div class="console" id="console" aria-label="Journal Plex"><div class="log">En attente de connexion...</div></div>
+        </section>
     </div>
-    <script src="/static/app.js?v=4"></script>
+    <section class="section calibration">
+        <h2>Calibration WLED</h2>
+        <form id="ledForm">
+            <div class="led-grid">
+                <fieldset class="control-group">
+                    <legend>Ruban et routage</legend>
+                    <div class="field"><label for="wled_ip">Adresse IP WLED</label><input type="text" id="wled_ip" placeholder="192.168.1.100"></div>
+                    <div class="field-row">
+                        <div class="field"><label for="leds_top">LED haut / bas</label><input type="number" id="leds_top" value="50" min="0"></div>
+                        <div class="field"><label for="leds_side">LED gauche / droite</label><input type="number" id="leds_side" value="30" min="0"></div>
+                    </div>
+                    <div class="field"><label for="led_start_pos">Départ du ruban (LED 0)</label><select id="led_start_pos">
+                        <option value="top_left">En haut à gauche</option><option value="top_right">En haut à droite</option>
+                        <option value="bottom_right">En bas à droite</option><option value="bottom_left">En bas à gauche</option>
+                    </select></div>
+                    <div class="field"><label for="led_direction">Sens de rotation</label><select id="led_direction"><option value="clockwise">Horaire</option><option value="counter_clockwise">Antihoraire</option></select></div>
+                </fieldset>
+                <fieldset class="control-group">
+                    <legend>Capture et transitions</legend>
+                    <label class="check-label" for="disable_autocrop"><input type="checkbox" id="disable_autocrop">Désactiver le recadrage automatique</label>
+                    <div class="field"><label for="led_depth">Profondeur <span id="led_depth_val">8%</span></label><input type="range" id="led_depth" min="1" max="50" value="8" oninput="document.getElementById('led_depth_val').innerText = this.value + '%'"></div>
+                    <div class="field"><label for="led_corner_gap">Marge des coins <span id="led_corner_gap_val">0%</span></label><input type="range" id="led_corner_gap" min="0" max="25" value="0" oninput="document.getElementById('led_corner_gap_val').innerText = this.value + '%'"></div>
+                    <div class="field"><label for="led_smoothing">Lissage temporel <span id="led_smoothing_val">65%</span></label><input type="range" id="led_smoothing" min="0" max="100" value="65" oninput="document.getElementById('led_smoothing_val').innerText = this.value + '%'"></div>
+                    <div class="field"><label for="led_refresh_rate">Cadence Plex (fps) <span id="led_refresh_rate_val">20</span></label><div class="inline-control">
+                        <input type="range" id="led_refresh_rate" min="10" max="30" value="20" oninput="document.getElementById('led_refresh_rate_val').innerText = this.value; document.getElementById('led_refresh_native').checked = false;">
+                        <label class="check-label" for="led_refresh_native"><input type="checkbox" id="led_refresh_native" onchange="if(this.checked) document.getElementById('led_refresh_rate_val').innerText = 'Natif'">Natif</label>
+                    </div></div>
+                </fieldset>
+                <figure class="simulator">
+                    <figcaption>Simulation du ruban</figcaption>
+                    <div class="simulator-surface"><canvas id="ledSimulator" width="400" height="225" aria-label="Couleurs et positions des LED"></canvas></div>
+                </figure>
+                <fieldset class="control-group">
+                    <legend>Décalage des LED</legend>
+                    <div class="field"><label for="offset_top">Haut <span id="offset_top_val">0</span></label><input type="range" id="offset_top" min="-15" max="15" value="0" oninput="document.getElementById('offset_top_val').innerText = this.value"></div>
+                    <div class="field"><label for="offset_right">Droite <span id="offset_right_val">0</span></label><input type="range" id="offset_right" min="-15" max="15" value="0" oninput="document.getElementById('offset_right_val').innerText = this.value"></div>
+                    <div class="field"><label for="offset_bottom">Bas <span id="offset_bottom_val">0</span></label><input type="range" id="offset_bottom" min="-15" max="15" value="0" oninput="document.getElementById('offset_bottom_val').innerText = this.value"></div>
+                    <div class="field"><label for="offset_left">Gauche <span id="offset_left_val">0</span></label><input type="range" id="offset_left" min="-15" max="15" value="0" oninput="document.getElementById('offset_left_val').innerText = this.value"></div>
+                </fieldset>
+                <fieldset class="control-group">
+                    <legend>Luminosité</legend>
+                    <label class="check-label" for="brightness_lock_btn"><input type="checkbox" id="brightness_lock_btn" checked>Lier les quatre côtés</label>
+                    <div class="field"><label for="led_brightness_top">Haut <span id="led_brightness_top_val">100%</span></label><input type="range" id="led_brightness_top" min="0" max="100" value="100" oninput="document.getElementById('led_brightness_top_val').innerText = this.value + '%'"></div>
+                    <div class="field"><label for="led_brightness_right">Droite <span id="led_brightness_right_val">100%</span></label><input type="range" id="led_brightness_right" min="0" max="100" value="100" oninput="document.getElementById('led_brightness_right_val').innerText = this.value + '%'"></div>
+                    <div class="field"><label for="led_brightness_bottom">Bas <span id="led_brightness_bottom_val">100%</span></label><input type="range" id="led_brightness_bottom" min="0" max="100" value="100" oninput="document.getElementById('led_brightness_bottom_val').innerText = this.value + '%'"></div>
+                    <div class="field"><label for="led_brightness_left">Gauche <span id="led_brightness_left_val">100%</span></label><input type="range" id="led_brightness_left" min="0" max="100" value="100" oninput="document.getElementById('led_brightness_left_val').innerText = this.value + '%'"></div>
+                </fieldset>
+            </div>
+            <div class="actions form-footer">
+                <button type="submit" id="btn_calibrate" class="btn-primary">Appliquer la calibration</button>
+                <button type="button" class="btn-danger" onclick="fetch('http://' + document.getElementById('wled_ip').value + '/win&T=0', {mode: 'no-cors'})">Éteindre les LED</button>
+            </div>
+        </form>
+    </section>
+</main>
+<script src="/static/app.js?v=5"></script>
 </body>
 </html>

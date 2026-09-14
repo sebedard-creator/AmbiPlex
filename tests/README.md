@@ -91,3 +91,69 @@ Snapshots refresh at most once per second on incoming playback notifications.
 This follows Plex's LAN classification; a VPN or unusual Plex network settings
 can affect that classification. No active sessions were available for a live
 local-versus-remote comparison when this change was made.
+
+## Remote Play capture
+
+`test_remote_capture.py` exercises RGBA-to-LED equivalence, single ownership,
+Plex output exclusion (including a capture started during WLEDSUB loading),
+local Origin checks, invalid frames, missing WLED configuration, timeout,
+disconnect, exceptions and cancellation. DDP is mocked; no physical strip is used.
+
+```powershell
+# Same Playwright environment as check_simulator.cjs above.
+node tests/check_remote.cjs
+```
+
+The browser test starts its own isolated server with synthetic configuration,
+a generated 720p canvas stream and a mocked DDP sender. It never reads the real
+config or connects to Plex/Xbox/WLED. It checks pixel colors through the actual
+LED engine, capture start/stop/restart, denied sharing, ended tracks, one pending
+frame and ACK timeout, plus desktop/mobile layout and JavaScript errors.
+Rendering callbacks are deliberately disabled to exercise the direct track
+reader. A frozen source remains connected beyond the old five-second deadline;
+a unit test verifies that keepalives renew the connection without sending DDP.
+Screenshots go to the OS temporary directory, not the repository.
+
+The project owner subsequently validated actual Xbox Series X Remote Play
+capture with the physical WLED strip: matching colors, no perceptible delay,
+and TV Dolby Vision retained in that setup. This user-driven result complements
+the synthetic checks; it is not an instrumented latency/color measurement or
+a compatibility claim for other hardware. Browser freezing and network-loss
+behavior still depend on the installation.
+
+Validation after this addition on 2026-09-13: 37 Python tests passed, the 34
+existing simulator comparisons remained exact, and the Remote Play browser
+checks passed with screenshots inspected at 1280x900 and 390x844.
+
+## Shared Web Interface
+
+```powershell
+node tests/check_interface.cjs
+```
+
+Uses the same Playwright setup. All HTTP requests are intercepted: synthetic
+configuration, mocked saves, file browsing and encoder progress. No real token,
+configuration file, Plex connection, capture permission or WLED request is used.
+
+Checks Plex and calibration payloads, linked/unlinked brightness, encoder
+selection/start/completion, shared colors, navigation and control overflow on
+all three pages at 1440, 768, 390 and 320 pixels. Six screenshots are written
+to the OS temporary directory. Twelve layouts passed and desktop/mobile
+screenshots were inspected. `check_simulator.cjs` still passes all 34 exact
+pixel comparisons; `check_remote.cjs` also verifies that Retour a Plex releases
+an active capture before navigation. Native Rover styling is unchanged.
+
+## Release Validation Summary
+
+Recorded for the Xbox/interface commit, reviewed on 2026-09-14:
+
+- 37 Python tests passed on 2026-09-13, including the capture keepalive fix.
+- 34 simulator comparisons remained pixel-identical after the interface update.
+- Remote Play browser checks passed, including static scenes and return to Plex.
+- 12 web layouts passed, with forms and desktop/mobile screenshots checked.
+- Physical Xbox Series X/WLED operation was confirmed by the project owner.
+- PyManager reports AmbiPlex running on port 5777; all three pages returned HTTP 200.
+
+The 2026-09-14 documentation preparation did not rerun the code tests or change
+application behavior. Instrumented end-to-end latency/colorimetry and a physical
+Plex local-versus-remote selection test remain outside these recorded results.

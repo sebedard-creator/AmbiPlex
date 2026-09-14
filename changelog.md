@@ -1,5 +1,58 @@
 # Journal des Modifications (Changelog) - AmbiPlex
 
+## 2026-09-14 - Support Xbox et préparation du commit
+
+Ce lot ajoute le support **Xbox Series X via Remote Play**, l'interface web
+unifiée et les tests associés. Le README présente désormais Xbox dès son ouverture,
+avec un guide dédié et des prérequis séparés de ceux de Plex.
+
+- Essai Xbox Series X/WLED confirmé par l'utilisateur : bonnes couleurs,
+  aucun retard perceptible et Dolby Vision maintenu sur sa TV. Pas de mesure
+  instrumentée ni de promesse de latence nulle sur d'autres installations.
+- WLED Subtitles présentés explicitement comme optionnels et réservés aux vidéos.
+- État des validations harmonisé : 37 tests Python, 34 comparaisons du simulateur,
+  capture navigateur et 12 dispositions d'interface. La validation physique
+  du filtrage des sessions Plex reste distincte de l'essai Xbox réussi.
+- Conflit PyManager résolu : l'instance de test indépendante occupait le port 5777.
+  Arrêt de cette seule instance et reprise via PyManager, sans modification de
+  son code ou de sa configuration. Démarrage et trois pages web vérifiés.
+- Documentation d'exploitation complétée pour éviter les doubles démarrages.
+- Quatre captures actualisées dans le README : Remote Play en premier, tableau
+  de bord Plex, calibration WLED et encodeur optionnel. Vues au repos, jeton
+  Plex omis et adresse WLED d'exemple, sans modification des réglages enregistrés.
+
+Les sections suivantes détaillent l'implémentation du lot et l'historique.
+
+## 2026-09-13 - Interface web unifiee
+
+- Style de Remote Play etendu aux pages Plex et encodeur : fond charbon,
+  controles coherents, groupes LED compacts et navigation commune.
+- Bouton explicite Retour a Plex, avec liberation de la capture active.
+- Liaison des luminosites par case a cocher; confirmation de calibration
+  ciblee sur le bouton d'application. Contrats de configuration conserves.
+- Tests des formulaires, encodeur et navigation sur 12 dispositions (320 a
+  1440 pixels), sans acceder aux appareils physiques. Simulateur toujours
+  identique dans les 34 comparaisons de pixels.
+- Essai physique Remote Play/WLED confirme par l'utilisateur : fonctionnement
+  satisfaisant sans retard perceptible. Aucune mesure instrumentee de latence.
+
+## 2026-09-13 - Essai Remote Play
+
+- Page `/remote` : partage explicite d'un onglet, apercu 160x90, recadrage,
+  cadence 30/60 images/s, demarrage/arret et mesures locales.
+- Transport RGBA8 local sans nouvel encodage avec pertes; une seule image en
+  attente d'acquittement. Ajout de la dependance `websockets`.
+- Moteur LED existant reutilise avec les reglages actuels. Exclusivite WLED
+  pendant la capture et reprise Plex a la liberation; configuration non modifiee.
+- Connexions de capture limitees au loopback et a une Origin correspondante.
+  Nettoyage sur fermeture, erreur, annulation et inactivite reseau de quinze secondes.
+- Correctif de capture Chrome : lecture directe via MediaStreamTrackProcessor,
+  liberation des VideoFrame et maintien de connexion sur image statique. Le
+  chemin direct est teste sans aucun rappel d'affichage video disponible.
+- Tests automatises sans connexion Xbox ni envoi vers un ruban physique.
+  L'essai visuel Xbox/WLED a ensuite ete confirme par l'utilisateur; seule une
+  mesure instrumentee du delai reel reste non effectuee.
+
 ## 2026-09-13 - Performances et sélection locale
 
 - Moyennes de couleurs regroupées dans `color_sampling.py`, communes au rendu

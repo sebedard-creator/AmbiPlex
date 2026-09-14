@@ -1,8 +1,79 @@
 # État de reprise AmbiPlex
 
-Mise à jour : 2026-09-13.
+Mise à jour : 2026-09-14.
 
-## Changements prêts à être commités
+## Lot prêt pour le commit
+
+- Support Xbox Series X via Remote Play : capture locale 160x90, cadence 30/60,
+  lecture directe du flux, connexion maintenue sur image statique et reprise Plex.
+- Interface commune aux trois pages, réglages LED regroupés et retour à Plex.
+- Dépendance `websockets`, tests Python et navigateur, documentation synchronisée.
+- README : annonce Xbox en tête, guide de démarrage, prérequis par source,
+  validation physique et limites, gestion des services et sous-titres optionnels.
+
+Les modifications de performance et de sélection Plex précédentes étaient déjà
+commitées au début du lot Xbox. Ne pas les présenter comme de nouveaux changements
+de ce commit. Aucun commit n'a été créé par l'agent; le commit reste à l'utilisateur.
+
+## Gestion du service avec PyManager
+
+Cette installation utilise `Y:\PyManager` pour lancer AmbiPlex. Utiliser ce
+gestionnaire pour les prochains demarrages et arrets, sans lancer en parallele
+`web.py` ou `start.bat`. API locale du gestionnaire : `http://127.0.0.1:8000` ;
+identifiant du service : `ambiplex-1782827386887`.
+
+L'instance lancee manuellement pendant les essais occupait le port 5777 sans
+etre reconnue par PyManager, car ses arguments differaient. Les tentatives de
+demarrage via le gestionnaire echouaient avec l'erreur Windows 10048 (port deja
+utilise). Cette instance a ete arretee et AmbiPlex relance via PyManager.
+Verification du 14 septembre : service declare actif par son API, port 5777
+detecte, pages `/`, `/remote` et `/encoder` accessibles (HTTP 200).
+Aucune modification du code ou de la configuration de PyManager n'a ete requise.
+
+## Remote Play valide et interface unifiee
+
+L'utilisateur confirme que le ruban suit le jeu sans latence perceptible apres
+le correctif de capture directe. Ce retour est subjectif, pas une mesure a 0 ms.
+Il a demande d'appliquer le style de cette page au reste de l'interface web.
+
+- `style.css` partage par Plex, l'encodeur et Remote Play; `remote.css` limite
+  aux dispositions specifiques. Reglages reorganises, contrats API inchanges.
+- Bouton Retour a Plex sur la capture : arret explicite avant navigation.
+- Tests UI des trois pages sur 1440, 768, 390 et 320 pixels, y compris les
+  sauvegardes et luminosites liees/independantes, sans appareil physique.
+- Les fichiers statiques et HTML sont servis sans redemarrage du serveur;
+  recharger les pages pour obtenir le nouveau style. Une actualisation de la
+  page Remote Play active arrete le partage et necessite une nouvelle selection.
+- Les quatre captures de la galerie README ont ete remplacees le 14 septembre
+  par l'interface actuelle : Remote Play, Plex, calibration WLED et encodeur.
+  Pages au repos, jeton omis et adresse WLED d'exemple, sans sauvegarde des
+  parametres. La vue Remote Play ne represente pas une partie en cours.
+
+## Implementation de la capture
+
+L'utilisateur confirme que Remote Play fonctionne avec de bonnes couleurs sur
+le PC et que sa TV reste en Dolby Vision. Il a choisi de valider le delai directement
+avec WLED. 720p retenu pour le premier essai; aucun parametre Xbox change par
+l'agent. Les travaux precedents etaient deja commites au debut de cet ajout.
+
+- Nouvelle page `http://localhost:5777/remote`, a ouvrir dans le meme Chrome/Edge
+  que Remote Play. L'utilisateur choisit l'onglet a partager, sans audio.
+- Capture navigateur RGBA8 160x90, cadence 30/60, un seul envoi en attente.
+- Moteur LED et reglages existants reutilises; pas de changement de configuration.
+- Plex cede la sortie WLED pendant la capture, puis reprend. Protection meme
+  si la capture commence pendant le chargement asynchrone d'une piste WLEDSUB.
+- Nouvelle dependance `websockets`; redemarrage du serveur requis apres mise a jour.
+- Mesures dans la page limitees au PC, pas au delai complet Xbox/WLED.
+- Validation physique maintenant reussie selon le retour utilisateur ci-dessus.
+- Premier essai utilisateur : seule la capture AmbiPlex se coupe peu apres le
+  choix de l'onglet; Xbox Remote Play reste connecte. Correctif : lecture directe
+  du flux avec MediaStreamTrackProcessor, keepalive sur scene statique et delai
+  reseau de quinze secondes. Recharger `/remote` pour obtenir `remote.js?v=3`.
+- Validation automatisee : 37 tests Python reussis, 34 comparaisons existantes
+  du simulateur identiques, tests navigateur de capture reussis sur images
+  synthetiques avec DDP simule. Captures desktop/mobile inspectees.
+
+## Changements precedents
 
 - Calcul commun des moyennes LED dans `color_sampling.py`, utilisé par
   `led_engine.py` et `bake.py`, avec conservation des résultats RGB8.

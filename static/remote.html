@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AmbiPlex | Remote Play</title>
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <link rel="stylesheet" href="/static/remote.css?v=3">
+    <script src="/static/remote.js?v=3" defer></script>
+</head>
+<body>
+<main class="app-shell">
+    <header class="app-header">
+        <div><a href="/">AmbiPlex</a><h1>Remote Play</h1></div>
+        <div class="page-nav">
+            <span id="state" role="status">Plex actif</span>
+            <a href="/" id="back-plex" class="btn">Retour à Plex</a>
+        </div>
+    </header>
+    <section class="toolbar" aria-label="Capture">
+        <button id="start">Choisir la source</button>
+        <button id="stop" disabled>Arrêter</button>
+        <label>Cadence <select id="fps"><option value="30">30 images/s</option><option value="60" selected>60 images/s</option></select></label>
+        <label><input id="center" type="checkbox" checked> Centrage 16:9</label>
+    </section>
+    <div class="capture-layout">
+        <section class="preview" aria-label="Image transmise">
+            <video id="video" muted playsinline></video>
+            <canvas id="frame" width="160" height="90" aria-label="Aperçu de la capture"></canvas>
+        </section>
+        <aside>
+            <h2>Recadrage</h2>
+            <div class="crop-fields">
+                <label>Haut (%)<input id="top" type="number" min="0" max="45" step="0.5" value="0"></label>
+                <label>Bas (%)<input id="bottom" type="number" min="0" max="45" step="0.5" value="0"></label>
+                <label>Gauche (%)<input id="left" type="number" min="0" max="45" step="0.5" value="0"></label>
+                <label>Droite (%)<input id="right" type="number" min="0" max="45" step="0.5" value="0"></label>
+            </div>
+            <h2>Mesures locales</h2>
+            <dl>
+                <div><dt>Cadence reçue</dt><dd id="measured-fps">0 images/s</dd></div>
+                <div><dt>Aller-retour PC</dt><dd id="rtt">-</dd></div>
+                <div><dt>Traitement LED</dt><dd id="processing">-</dd></div>
+            </dl>
+        </aside>
+    </div>
+    <p id="error" role="alert"></p>
+</main>
+</body>
+</html>

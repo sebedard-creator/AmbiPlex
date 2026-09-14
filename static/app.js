@@ -190,7 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(config)
             }).then(res => res.json()).then(data => {
                 if(data.status === "success") {
-                    const btn = ledForm.querySelector('button');
+                    const btn = ledForm.querySelector('button[type="submit"]');
                     const oldText = btn.textContent;
                     btn.textContent = "✓ Calibration Appliquée";
                     btn.style.background = "#2ea043";
@@ -456,21 +456,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // Logique de lien de luminosité
     let isBrightnessLinked = true;
     const lockBtn = document.getElementById("brightness_lock_btn");
-    const lockIcon = document.getElementById("brightness_lock_icon");
-    const lockText = document.getElementById("brightness_lock_text");
     
     if (lockBtn) {
-        lockBtn.addEventListener("click", () => {
-            isBrightnessLinked = !isBrightnessLinked;
-            if (isBrightnessLinked) {
-                lockIcon.innerText = "🔒";
-                lockText.innerText = "Liés";
-                lockBtn.style.background = "var(--primary)";
-            } else {
-                lockIcon.innerText = "🔓";
-                lockText.innerText = "Séparés";
-                lockBtn.style.background = "#555";
-            }
+        lockBtn.addEventListener("change", () => {
+            isBrightnessLinked = lockBtn.checked;
         });
         
         const sides = ['top', 'right', 'bottom', 'left'];

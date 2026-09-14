@@ -4,6 +4,11 @@
 
 ## Objectif
 
+**Cette fonctionnalité est optionnelle et concerne les vidéos Plex.** Le rendu
+Plex temps réel fonctionne sans ces fichiers. Le support Xbox Series X utilise
+la capture en direct de Remote Play et ne lit ni ne génère de WLED Subtitles.
+Les détails de la source Xbox se trouvent dans [architecture.md](architecture.md).
+
 Précalculer les couleurs d'une vidéo pour éviter son décodage par MPV à chaque
 lecture. La piste est spécifique aux dimensions LED et à la profondeur de capture
 choisies. Elle ne constitue pas un format indépendant du matériel.

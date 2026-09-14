@@ -14,6 +14,7 @@ from player import SlavePlayer
 from led_engine import LedEngine
 from wled_reader import WledSubtitleReader
 from monitoring import MonitorMailbox
+from remote_capture import RemoteCapture
 
 app = FastAPI()
 
@@ -124,7 +125,10 @@ async def background_sync_loop():
 
         while True:
             try:
-                sync_instance.connect()
+                if remote_capture.active:
+                    await asyncio.sleep(0.25)
+                    continue
+                await asyncio.to_thread(sync_instance.connect)
                 sync_instance.start_websocket_listener()
                 await broadcast({"type": "info", "message": "Connecté au serveur Plex"})
                 break
@@ -138,10 +142,22 @@ async def background_sync_loop():
     last_config_load = 0
     next_frame_time = time.perf_counter()
     last_playing_state = False
+    remote_was_active = False
     
     while True:
         loop_start_time = time.perf_counter()
         try:
+            if remote_capture.active:
+                if player_instance and not remote_was_active:
+                    player_instance.pause()
+                remote_was_active = True
+                await asyncio.sleep(0.01)
+                next_frame_time = time.perf_counter()
+                continue
+            if remote_was_active:
+                led_engine_instance.last_colors = None
+                remote_was_active = False
+                last_playing_state = False
             current_playing_state = sync_instance.is_playing
             
             # Reload config once per second to get fresh LED/IP settings without heavy I/O
@@ -161,6 +177,8 @@ async def background_sync_loop():
                     media_path = sync_instance.current_media_path
                     loading = wled_reader_instance.needs_check(media_path, expected_x, expected_y)
                     is_wledsub = await wled_reader_instance.ensure_compatible(media_path, expected_x, expected_y)
+                    if remote_capture.active:
+                        continue
                     if loading:
                         config = load_config()
                         last_config_load = time.time()
@@ -205,7 +223,7 @@ async def background_sync_loop():
                         colors = led_engine_instance.process_prebaked_colors(raw_rgb565, config)
                         ip = config.get("wled_ip")
                         if ip and colors:
-                            led_engine_instance.send_ddp(ip, colors)
+                            remote_capture.send_plex_colors(led_engine_instance, ip, colors)
                         data["colors"] = colors
                         data["crop_box"] = [0, 90]
                 else:
@@ -266,7 +284,7 @@ async def background_sync_loop():
                             colors = led_engine_instance.calculate_colors(frame, config)
                             ip = config.get("wled_ip")
                             if ip:
-                                led_engine_instance.send_ddp(ip, colors)
+                                remote_capture.send_plex_colors(led_engine_instance, ip, colors)
                             data["colors"] = colors # Envoyer à l'UI pour la simulation
                             data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
             else:
@@ -304,7 +322,7 @@ async def background_sync_loop():
                         colors = led_engine_instance.process_prebaked_colors(raw_rgb565, config)
                         ip = config.get("wled_ip")
                         if ip and colors:
-                            led_engine_instance.send_ddp(ip, colors)
+                            remote_capture.send_plex_colors(led_engine_instance, ip, colors)
                         data["colors"] = colors
                         data["crop_box"] = [0, 90]
                 else:
@@ -329,7 +347,7 @@ async def background_sync_loop():
                             colors = led_engine_instance.calculate_colors(frame, config)
                             ip = config.get("wled_ip")
                             if ip:
-                                led_engine_instance.send_ddp(ip, colors)
+                                remote_capture.send_plex_colors(led_engine_instance, ip, colors)
                             data["colors"] = colors
                             data["crop_box"] = [int(led_engine_instance.crop_top), int(led_engine_instance.crop_bottom)]
             
@@ -365,6 +383,9 @@ async def background_sync_loop():
 async def broadcast(data: dict):
     for q in clients:
         await q.put(data)
+
+remote_capture = RemoteCapture(load_config, broadcast)
+app.include_router(remote_capture.router)
 
 @app.on_event("startup")
 async def startup_event():
@@ -564,4 +585,5 @@ async def stream(request: Request):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 if __name__ == "__main__":
-    uvicorn.run("web:app", host="0.0.0.0", port=5777, reload=False)
+    uvicorn.run("web:app", host="0.0.0.0", port=5777, reload=False,
+                ws_max_size=65536, ws_max_queue=1, ws_per_message_deflate=False)
