@@ -1,5 +1,25 @@
 # Journal des Modifications (Changelog) - AmbiPlex
 
+## 2026-09-14 - Rover : interface et gestion des lots
+
+- Interface native harmonisée avec Plex et Remote Play : fond charbon, commandes
+  vertes, tableau compact et accès à l'interface Plex.
+- Scan récursif dans un thread de travail, affichage par groupes de 200 fichiers,
+  recherche différée et file d'événements bornée. Le scan réutilise la liste du
+  dossier pour détecter les pistes, sans requête de présence par vidéo.
+- Recherche, filtres, sélection globale ou des pistes manquantes, sélection
+  multiple native Ctrl/Shift et comptage visible.
+- Progression du fichier et du lot, journal borné à 200 lignes, bilan distinguant
+  les réussites, erreurs et fichiers non traités. Codes de sortie vérifiés.
+- Arrêt entre deux fichiers et fermeture différée, confirmation de remplacement
+  et refus des vidéos partageant une même sortie dans un même dossier.
+- Paramètres Tk lus avant le lancement du thread ; widgets mis à jour uniquement
+  par la boucle principale. Aucun changement du moteur ou des filtres de rendu.
+- 57 tests Python réussis, dont 20 tests Rover couvrant les erreurs, l'arrêt, les
+  sélections, 3 000 fichiers et les dimensions 1120x820 et 880x720. Comparaison
+  réelle FFmpeg : contenu WLEDSUB décompressé identique octet pour octet à la
+  commande directe sur une mire. Capture de la fenêtre fournie et inspectée.
+
 ## 2026-09-14 - Support Xbox et préparation du commit
 
 Ce lot ajoute le support **Xbox Series X via Remote Play**, l'interface web

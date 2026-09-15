@@ -141,7 +141,8 @@ all three pages at 1440, 768, 390 and 320 pixels. Six screenshots are written
 to the OS temporary directory. Twelve layouts passed and desktop/mobile
 screenshots were inspected. `check_simulator.cjs` still passes all 34 exact
 pixel comparisons; `check_remote.cjs` also verifies that Retour a Plex releases
-an active capture before navigation. Native Rover styling is unchanged.
+an active capture before navigation. These checks cover the web pages; native
+Rover checks are documented separately below.
 
 ## Release Validation Summary
 
@@ -157,3 +158,32 @@ Recorded for the Xbox/interface commit, reviewed on 2026-09-14:
 The 2026-09-14 documentation preparation did not rerun the code tests or change
 application behavior. Instrumented end-to-end latency/colorimetry and a physical
 Plex local-versus-remote selection test remain outside these recorded results.
+
+## Native Rover
+
+```powershell
+venv\Scripts\python.exe -B -m unittest discover -s tests -p test_rover.py -v
+venv\Scripts\python.exe -B tests/preview_rover.py
+# Optional compact preview:
+venv\Scripts\python.exe -B tests/preview_rover.py --compact
+```
+
+Twenty Rover tests cover recursive discovery, cancellation, bad settings, output
+collisions, failed processes, missing output, stop-between-files, progress,
+selection/filtering, overwrite confirmation, deferred closing, bounded logs,
+3,000 rows and native widget geometry at 1120x820 and 880x720. Tk callbacks are
+checked for errors. Config and subprocesses are mocked except for one isolated
+FFmpeg integration test: a one-second synthetic video produces exactly the same
+decompressed WLEDSUB bytes through Rover as through the direct bake command.
+That test is skipped when FFmpeg is unavailable; it never downloads a binary.
+
+The preview creates two temporary sample videos and one deliberately invalid
+file. It uses synthetic settings and the real baker, without reading local
+configuration or sending WLED data. Close it to clean up its temporary folder.
+It requires FFmpeg already in PATH and does not start or restart the web service.
+
+Validation on 2026-09-14: all 57 Python tests passed, including the real FFmpeg
+comparison and the existing color-equivalence checks. The supplied Windows
+screenshot was inspected; automatic Windows capture failed with the unsupported
+`SetIsBorderRequired` interface. Web code was unchanged and browser tests were
+not rerun for this native-only update.

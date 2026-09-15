@@ -349,7 +349,7 @@ class RoverTests(unittest.TestCase):
                 rover.AmbiPlexRover.update_threads_label(instance, value)
         scroll.assert_not_called()
         frame.assert_not_called()
-        instance.threads_label.configure.assert_called_with(text='CPU Threads: 16')
+        instance.threads_label.configure.assert_called_with(text='Threads : 16')
 
 
 if __name__ == '__main__':

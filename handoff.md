@@ -2,7 +2,27 @@
 
 Mise à jour : 2026-09-14.
 
-## Lot prêt pour le commit
+## Nouveau lot Rover
+
+- Interface native alignée sur le style web ; tableau ttk, recherche, filtres,
+  sélection Ctrl/Shift et commandes pour sélectionner les pistes manquantes.
+- `rover_batch.py` sépare scan et encodage des widgets. Scan en arrière-plan,
+  insertions par groupes de 200, journal limité et événements bornés.
+- Vérification des retours du processus, progression par fichier et bilan des
+  erreurs. Arrêt après le fichier courant, fermeture différée, confirmation des
+  remplacements et détection des sorties partagées.
+- Aucun changement de `bake.py`, des couleurs, des filtres, de la configuration
+  enregistrée ni du service AmbiPlex géré par PyManager.
+- 57 tests Python réussis, dont 20 tests Rover ; piste générée via Rover identique
+  à la commande directe sur une mire FFmpeg. Géométrie vérifiée à 1120x820 et
+  880x720. Capture fournie de la fenêtre inspectée ; capture automatique Windows
+  indisponible (`SetIsBorderRequired`, interface non supportée).
+- `tests/preview_rover.py` ouvre un essai isolé : deux mires temporaires et un
+  fichier volontairement invalide, paramètres synthétiques, aucun accès aux films
+  ou au jeton Plex. La fenêtre de test peut être fermée ; lancer ensuite
+  `start_rover.bat` pour l'utilisation normale. Le commit reste à faire.
+
+## Lot Xbox précédent
 
 - Support Xbox Series X via Remote Play : capture locale 160x90, cadence 30/60,
   lecture directe du flux, connexion maintenue sur image statique et reprise Plex.

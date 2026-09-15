@@ -198,6 +198,27 @@ The CLI is also available:
 venv\Scripts\python.exe bake.py "D:\Movies\Film.mkv" --leds-x 64 --leds-y 36 --depth 8 --threads 0
 ```
 
+### Rover Batch Encoder
+
+Rover now shares AmbiPlex's charcoal-and-green design in a native Windows window.
+It scans folders and subfolders in the background and lists videos, existing
+tracks and encoding status in a compact table.
+
+- Search by filename or relative path; filter missing tracks, existing tracks or errors.
+- Select all visible videos, only missing tracks, or a range with Shift; Ctrl toggles individual selections.
+- Monitor file progress, overall batch progress and the most recent 200 log lines.
+- Adjust FFmpeg threads; LED dimensions and capture depth come from the existing configuration.
+- Stop after the current file, or finish that file before closing Rover.
+- Confirm regeneration of existing tracks; conflicting output names are rejected.
+
+Selection actions apply to visible rows. Filtering removes hidden files from the
+selection. Encoding remains sequential, and settings are never saved by Rover.
+The same `bake.py` filters, color sampling and WLEDSUB format are used unchanged.
+Rover checks the encoder exit code and expected output file; it does not perform
+a full integrity check on every generated track.
+
+### Track Compatibility
+
 The output sits beside the video as `Film.wledsub.lz4`. Its LED dimensions must
 match the configuration. Capture depth and black-bar processing are baked into
 the track; changing those requires reencoding. Brightness, smoothing, routing

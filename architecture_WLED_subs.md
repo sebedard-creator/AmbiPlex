@@ -1,6 +1,6 @@
 # Architecture WLED Subtitles
 
-État implémenté au 2026-09-13. Ce document remplace les propositions initiales.
+État implémenté au 2026-09-14. Ce document remplace les propositions initiales.
 
 ## Objectif
 
@@ -63,6 +63,25 @@ venv\Scripts\python.exe bake.py "D:\Movies\Film.mkv" --leds-x 64 --leds-y 36 --d
 
 La limitation des threads et l'affinité CPU concernent le processus FFmpeg.
 Les calculs Python du préencodage restent également à prendre en compte.
+
+### Rover
+
+`rover.py` fournit l'interface native CustomTkinter avec un tableau ttk. La
+découverte et l'exécution des lots résident dans `rover_batch.py`, sans dépendance
+Tk. Un scan utilise `os.walk`, réutilise les noms du dossier pour détecter les
+pistes et transmet les résultats par groupes de 200. La file d'événements est
+bornée à 32 messages ; le thread principal est seul responsable des widgets.
+
+Les lots lancent le même `bake.py` séquentiellement, avec les mêmes paramètres
+LED/profondeur/threads. `-u` rend les messages de progression disponibles sans
+attendre la fin du processus. Une réussite exige un code de sortie nul et la
+présence du fichier final ; cela ne remplace pas une validation intégrale du
+contenu ni ne corrige les limites du baker décrites dans ce document.
+
+Un arrêt demandé ne tue pas le processus courant : Rover attend sa fin avant
+d'abandonner les fichiers suivants. La fermeture pendant un lot propose le même
+comportement. Un encodeur bloqué peut donc retarder l'arrêt. Les configurations
+et filtres de rendu ne sont pas modifiés, et Rover n'envoie aucun paquet WLED.
 
 ## Lecture et cache
 
