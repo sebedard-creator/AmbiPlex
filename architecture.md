@@ -1,17 +1,20 @@
 # Architecture du projet AmbiPlex
 
-Mise à jour : 2026-09-14.
+Mise à jour : 2026-10-16.
 
 ## Vue d'ensemble
 
 AmbiPlex synchronise un ruban WLED avec deux sources : une session vidéo Plex
-locale ou une capture Xbox Remote Play choisie dans le navigateur. La source
+locale ou une capture Remote Play choisie dans le navigateur. La source
 Xbox Series X a été validée sur l'installation de l'utilisateur, sans retard
 perceptible et avec le téléviseur restant en Dolby Vision. Ce retour ne constitue
 pas une mesure de latence ni une garantie pour toutes les installations.
 
 - **Xbox Remote Play** : capture d'un onglet, lecture directe des images, calcul
   des couleurs et envoi DDP. Aucun préencodage ni carte de capture HDMI.
+- **PlayStation Remote Play** : capture de la fenêtre Chiaki-ng, fonctionnement
+  PS4 confirmé dans Chrome. PS5 documentée, non testée ici ; calibration des
+  couleurs PS4 encore en cours. Voir [le guide dédié](PLAYSTATION_SETUP.md).
 - **Plex temps réel** : capture d'une fenêtre MPV cachée, puis extraction des couleurs.
 - **Plex avec WLEDSUB (optionnel)** : lecture d'une piste de couleurs précalculées,
   sans décodage vidéo MPV pendant la lecture.
@@ -52,7 +55,23 @@ et sont ignorés par Git. Les captures PNG versionnées servent à la documentat
 
 ## Sources de lecture
 
-### Xbox Remote Play
+### Capture Remote Play (Xbox / PlayStation)
+
+Le sélecteur de source propose Xbox (préférence `displaySurface: 'browser'`) ou
+PlayStation (préférence `displaySurface: 'window'`). `/remote?source=ps4`
+présélectionne ce profil commun PS4/PS5 ; la valeur interne `ps4` est conservée
+pour les anciens liens. Le type de console se règle dans Chiaki, pas AmbiPlex.
+Tout autre paramètre conserve Xbox par défaut. Le navigateur décide
+des choix disponibles et l'utilisateur confirme la source. Le sélecteur est
+verrouillé pendant la capture, puis réactivé à l'arrêt ou en cas d'erreur.
+
+La surface rapportée par `track.getSettings()` et les dimensions réelles des
+images reçues sont affichées sans publier le titre de la fenêtre. Ces dimensions
+incluent les éventuelles décorations et ne mesurent pas la résolution du flux
+console. Celle-ci se règle dans Chiaki (540p/720p pour le premier essai PS4).
+Le profil ne fixe aucune contrainte de largeur/hauteur ni aucun recadrage propre
+à une application : les marges manuelles s'appliquent avant le centrage 16:9.
+Audio désactivé pour les deux sources. Aucun accès aux identifiants PlayStation.
 
 `/remote` utilise `getDisplayMedia` apres une action de l'utilisateur, puis
 `MediaStreamTrackProcessor` dans Chrome/Edge (buffer d'une image), avec repli
@@ -67,7 +86,11 @@ Le serveur accepte uniquement un client loopback avec une Origin locale de meme
 hote/port/protocole. Un seul proprietaire est admis. Taille, type et inactivite
 des messages sont controles; le delai d'inactivite reseau est de quinze secondes.
 Un ping applicatif chaque seconde sans image en attente maintient la connexion
-sur une scene statique; les pong ne declenchent aucun envoi DDP. Les fermetures
+sur une scene statique. Apres cinq secondes sans message, le serveur envoie aussi
+un ping : le navigateur repond sur l'evenement WebSocket, sans minuteur JavaScript.
+Il reste dix secondes pour recevoir une reponse avant liberation de la capture.
+Cela couvre les minuteurs ralentis en arriere-plan, pas une page gelee ou detruite.
+Les ping/pong ne declenchent aucun envoi DDP. Les fermetures
 sont journalisees avec leur code et le nombre d'images, sans contenu capture.
 Le moteur LED de cette source possede son propre etat de lissage et de crop.
 Il relit les reglages locaux au maximum une fois par seconde, sans les modifier.
@@ -81,8 +104,26 @@ thread pour ne pas bloquer la reception Remote Play quand Plex est indisponible.
 
 La fermeture, une erreur ou une annulation ferme le moteur et libere le
 proprietaire. Aucun effacement force du ruban n'est envoye a l'arret. Les mesures
-affichees ne sont pas une mesure de latence Xbox-vers-LED. La capture depend du
+affichees ne sont pas une mesure de latence console-vers-LED. La capture depend du
 partage navigateur, du cadrage choisi et de sa cadence, notamment en arriere-plan.
+
+Le 15 octobre, les tests navigateur vérifient une fenêtre synthétique 960x540,
+une fenêtre 960x600 avec une barre de 60 pixels retirée par la marge haute,
+le repli vidéo, les erreurs de capture et le retour à Plex. Les 200 couleurs LED
+sont identiques à la référence en lecture directe. Le repli vidéo conserve les
+couleurs des zones unies, mais le rendu navigateur peut interpoler les frontières.
+Le retour utilisateur du 16 octobre confirme la capture PS4 dans Chrome après
+un gel prolongé dans Firefox, Chiaki restant actif. Le montage avec utilisateur
+console dédié évite le conflit de manette. Ce retour n'est ni une mesure de
+latence ni une calibration : saturation et niveaux de noir restent en examen.
+Le repli vidéo Firefox reste présent, mais n'est pas recommandé pour ce parcours.
+PS5 n'a pas été testée physiquement ; seul le chemin générique de capture de
+fenêtre est commun. Le guide décrit le parcours PlayStation standard.
+
+Le moteur AmbiPlex n'applique actuellement aucun gamma logiciel. WLED peut
+corriger les couleurs temps réel, sauf si son option de désactivation est cochée.
+Un test A/B est en cours, sans changement de code ni résultat confirmé. Ce
+réglage appartient à WLED et affecte toutes les sources, pas uniquement PS4.
 
 ### Session Plex locale
 

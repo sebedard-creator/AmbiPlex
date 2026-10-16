@@ -1,6 +1,72 @@
 # État de reprise AmbiPlex
 
-Mise à jour : 2026-09-14.
+Mise à jour : 2026-10-16.
+
+## État du lot PlayStation pour commit
+
+- Guide public [PLAYSTATION_SETUP.md](PLAYSTATION_SETUP.md) : parcours normal
+  PS4/PS5 standard, comptes, association Chiaki, manette sur console,
+  capture Chrome. Menus en anglais,
+  références officielles, aucun identifiant personnel.
+- Libellé de source « PlayStation Remote Play », valeur `ps4` et anciens liens
+  conservés. Aucun nouveau protocole console ni changement du traitement LED.
+- L'utilisateur confirme que le passage de Firefox à Chrome a résolu le gel de
+  capture PS4 ; Chiaki restait fonctionnel lors du problème Firefox. L'ancienne
+  hypothèse spécifique à Chrome ne doit pas être retenue comme diagnostic établi.
+- PS4 fonctionnelle, profil console dédié utilisé pour laisser la DualShock sur
+  le profil de jeu principal. PS5 décrite selon l'amont, pas testée physiquement.
+- Couleurs PS4 délavées et noirs gris signalés sur le ruban. Chiaki paraît correct
+  à l'utilisateur ; Plex lui convient. Aucune comparaison de pixels réelle n'a
+  été faite entre Chiaki et l'aperçu, donc cause précise non établie.
+- Diagnostic en lecture seule : pas de gamma logiciel dans AmbiPlex ; correction
+  gamma temps réel désactivée dans WLED alors que sa courbe couleur vaut 2,2.
+  Le moteur conserve les primaires et produit zéro sur les 200 LED pour un noir
+  numérique pur, avec les réglages locaux. Cela ne prouve pas que la capture
+  réelle fournit du noir pur. Le seuil fixe d'extinction vaut 6 après luminosité.
+- L'utilisateur teste l'option WLED décochée. Résultat encore inconnu ; ne pas
+  déclarer les couleurs corrigées ni changer gamma/saturation/seuils dans le
+  code. Un réglage WLED global doit aussi être comparé avec Plex et Xbox.
+- Les fichiers personnels, configurations Chiaki, vidéos et téléchargements
+  restent hors commit. Aucun commit créé par l'agent.
+- Vérification du 16 octobre : 58 tests Python, capture navigateur, 12 mises en
+  page et 34 comparaisons exactes du simulateur réussis. Aperçu mobile du nouveau
+  libellé inspecté, 20 références locales valides. Aucun identifiant personnel
+  connu ni jeton Plex réel détecté dans les fichiers à versionner ; configuration
+  locale toujours ignorée. Seul nouveau fichier non ignoré : le guide PlayStation.
+
+## Correctif de présence Remote Play
+
+- Le serveur sonde après cinq secondes sans message, puis attend une réponse dans
+  les dix secondes restantes. Le navigateur répond sur événement WebSocket, sans
+  minuteur. Le délai de sécurité et la libération de la sortie Plex sont conservés.
+- Aucun changement du calcul des couleurs, du recadrage, de la cadence ou du DDP.
+- `remote.js?v=5` : redémarrer AmbiPlex via PyManager, puis recharger la page et
+  sélectionner la fenêtre Chiaki de nouveau. Aucun second serveur à lancer.
+- Test navigateur réussi : 17 secondes sans image ni minuteur de présence,
+  connexion conservée et couleurs des 200 LED identiques après reprise.
+  Les 12 tests Python de capture passent, dont expiration d'un client muet.
+  Suite Python complète : 58 tests réussis après le correctif.
+
+## Profil PlayStation
+
+- `/remote` propose Xbox (onglet) et PlayStation Remote Play (fenêtre).
+  Lien direct : `http://localhost:5777/remote?source=ps4`.
+- Source verrouillée pendant le partage ; surface et dimensions reçues affichées.
+  Capture locale, moteur LED, RGBA8 et paramètres Plex/WLED conservés.
+- Le profil PS4 seul ne nécessitait pas de redémarrage. Le correctif de présence
+  décrit plus haut modifie aussi le serveur et nécessite un redémarrage via PyManager.
+  Recharger pendant un partage l'arrête ; il faudra sélectionner la source à nouveau.
+- Essai conseillé : Chiaki sur le PC AmbiPlex, 540p/720p et haute cadence pour
+  PS4, 60 images/s dans AmbiPlex, choisir sa fenêtre puis ajuster les marges.
+  Ne pas confondre dimensions de fenêtre capturée et résolution du flux console.
+- Fonctionnement PS4 dans Chrome confirmé ; calibration et mesures objectives
+  encore ouvertes. Le guide distingue contrôleur sur PC et contrôleur sur console.
+- Validations du 15 octobre : capture navigateur réussie sur les deux profils,
+  couleurs exactes des 200 LED en lecture directe à 540p, repli vidéo, 12 mises en
+  page et 11 tests Python de capture réussis. `/remote?source=ps4` répond HTTP 200
+  avec le sélecteur et le nouveau script, via le service existant.
+- Les screenshots de la galerie datent du 14 septembre et ne montrent pas encore
+  le sélecteur de console. Les captures de test du 15 octobre restent temporaires.
 
 ## Nouveau lot Rover
 
@@ -37,10 +103,9 @@ de ce commit. Aucun commit n'a été créé par l'agent; le commit reste à l'ut
 
 ## Gestion du service avec PyManager
 
-Cette installation utilise `Y:\PyManager` pour lancer AmbiPlex. Utiliser ce
+Cette installation utilise PyManager pour lancer AmbiPlex. Utiliser ce
 gestionnaire pour les prochains demarrages et arrets, sans lancer en parallele
-`web.py` ou `start.bat`. API locale du gestionnaire : `http://127.0.0.1:8000` ;
-identifiant du service : `ambiplex-1782827386887`.
+`web.py` ou `start.bat`. Ne pas publier les identifiants internes du gestionnaire.
 
 L'instance lancee manuellement pendant les essais occupait le port 5777 sans
 etre reconnue par PyManager, car ses arguments differaient. Les tentatives de

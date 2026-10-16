@@ -112,10 +112,16 @@ frame and ACK timeout, plus desktop/mobile layout and JavaScript errors.
 Rendering callbacks are deliberately disabled to exercise the direct track
 reader. A frozen source remains connected beyond the old five-second deadline;
 a unit test verifies that keepalives renew the connection without sending DDP.
+Server-initiated probes are also tested: a PS4 synthetic source stops producing
+frames and its client heartbeat timer is suppressed for 17 seconds. The connection
+must remain active, receive server probes and resume with all 200 LED colors
+unchanged. This simulates timer throttling, not a fully frozen browser process.
+Python tests also verify that a client which never answers a probe times out
+and releases ownership, while timerless replies keep the session alive without DDP.
 Screenshots go to the OS temporary directory, not the repository.
 
-The project owner subsequently validated actual Xbox Series X Remote Play
-capture with the physical WLED strip: matching colors, no perceptible delay,
+Actual Xbox Series X Remote Play was subsequently validated with the
+physical WLED strip: matching colors, no perceptible delay,
 and TV Dolby Vision retained in that setup. This user-driven result complements
 the synthetic checks; it is not an instrumented latency/color measurement or
 a compatibility claim for other hardware. Browser freezing and network-loss
@@ -124,6 +130,41 @@ behavior still depend on the installation.
 Validation after this addition on 2026-09-13: 37 Python tests passed, the 34
 existing simulator comparisons remained exact, and the Remote Play browser
 checks passed with screenshots inspected at 1280x900 and 390x844.
+
+## PlayStation Capture Profile
+
+PS4 profile checks added on 2026-10-15: `check_remote.cjs` requests a window
+instead of a tab, exercises `/remote?source=ps4`, and supplies a synthetic 960x540
+stream. All 200 LED colors must match the Xbox reference through direct frame
+processing. A second case crops a 60-pixel toolbar from a 960x600 window and
+requires the same result. The video-rendering fallback is exercised separately;
+solid-zone colors remain exact, while interpolation can affect zone boundaries.
+Capture-surface reporting, source dimensions, selector locking/reset, unreadable
+window recovery and the existing ownership/stop/return-to-Plex checks are covered.
+No actual PlayStation application, account, console or WLED device is used.
+
+The public source label is now `PlayStation Remote Play`; its internal `ps4`
+value and `/remote?source=ps4` bookmark remain compatible. This is a generic
+window-capture preference, not a console-specific protocol implementation.
+The interface check selects this profile on all four existing viewport sizes.
+Test screenshots are synthetic previews saved in the OS temporary directory,
+including `ambiplex-ps4-desktop.png` and `ambiplex-ps4-mobile.png`.
+
+Validated on 2026-10-15: the capture browser test passed, all 12 interface layouts
+passed, and all 12 Python remote-capture tests passed after the keepalive fix.
+Desktop/mobile synthetic screenshots were inspected. The existing local service served the updated page
+with HTTP 200 without a restart for the original frontend-only profile addition.
+The subsequent server keepalive fix requires an AmbiPlex restart via PyManager
+and a capture-page reload.
+The full Python suite passed all 58 tests after this fix on 2026-10-15.
+
+Physical follow-up on 2026-10-16: PS4/Chiaki-ng capture works in Chrome according
+to the user. Firefox's fallback froze while Chiaki kept streaming; Chrome resolved
+that report. A dedicated console user allows the controller to stay on the
+original gaming user. No instrumented latency or calibrated color measurement
+was made. PS4 saturation/near-black calibration remains open; the WLED gamma
+A/B test has no confirmed result. PS5 is documented, not physically tested.
+See [the PlayStation guide](../PLAYSTATION_SETUP.md) for setup and limitations.
 
 ## Shared Web Interface
 
@@ -146,13 +187,23 @@ Rover checks are documented separately below.
 
 ## Release Validation Summary
 
+Rerun on 2026-10-16 for the PlayStation commit preparation:
+
+- All 58 Python tests passed, including 12 remote-capture tests.
+- `check_remote.cjs` passed, including the source label, exact colors, window crop,
+  17-second timerless/static-source test and source release.
+- All 12 web layouts passed; the PlayStation mobile screenshot was inspected.
+- All 34 simulator canvas comparisons were exactly equal; no JavaScript errors.
+- No physical console, WLED output or real configuration write was used by these
+  automated browser tests. Physical PS4 feedback and the open gamma test are above.
+
 Recorded for the Xbox/interface commit, reviewed on 2026-09-14:
 
 - 37 Python tests passed on 2026-09-13, including the capture keepalive fix.
 - 34 simulator comparisons remained pixel-identical after the interface update.
 - Remote Play browser checks passed, including static scenes and return to Plex.
 - 12 web layouts passed, with forms and desktop/mobile screenshots checked.
-- Physical Xbox Series X/WLED operation was confirmed by the project owner.
+- Physical Xbox Series X/WLED operation was confirmed by the user.
 - PyManager reports AmbiPlex running on port 5777; all three pages returned HTTP 200.
 
 The 2026-09-14 documentation preparation did not rerun the code tests or change

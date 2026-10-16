@@ -78,13 +78,20 @@ class RemoteCapture:
             logger.info("Capture locale ouverte")
             await websocket.send_json({"type": "ready"})
             while True:
-                message = await asyncio.wait_for(websocket.receive(), timeout=self.timeout)
+                try:
+                    message = await asyncio.wait_for(websocket.receive(), timeout=self.timeout / 3)
+                except asyncio.TimeoutError:
+                    # Background browser timers may pause; a socket event needs no timer.
+                    await websocket.send_json({"type": "ping"})
+                    message = await asyncio.wait_for(websocket.receive(), timeout=self.timeout * 2 / 3)
                 if message["type"] == "websocket.disconnect":
                     logger.info("Capture fermee par le navigateur: code=%s, images=%s",
                                 message.get("code"), frames)
                     break
                 if message.get("text") == "ping":
                     await websocket.send_json({"type": "pong"})
+                    continue
+                if message.get("text") == "pong":
                     continue
                 payload = message.get("bytes")
                 if payload is None or len(payload) != FRAME_BYTES:

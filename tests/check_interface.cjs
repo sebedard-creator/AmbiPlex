@@ -97,6 +97,9 @@ const config = {
                     assert(await page.locator('#btn_browse').isEnabled());
                 } else {
                     assert.equal(await page.locator('#back-plex').getAttribute('href'), '/');
+                    assert.equal(await page.locator('#source').inputValue(), 'xbox');
+                    await page.locator('#source').selectOption('ps4');
+                    assert.equal(await page.locator('#source-size').textContent(), '-');
                 }
                 const overflow = await page.evaluate(() => ({
                     page: document.documentElement.scrollWidth > innerWidth,

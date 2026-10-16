@@ -103,6 +103,29 @@ class RemoteCaptureTests(unittest.IsolatedAsyncioTestCase):
         await self.capture.receive(socket)
         self.assertFalse(self.capture.active)
         self.engine.close.assert_called_once()
+        socket.send_json.assert_any_await({"type": "ping"})
+        self.assertEqual(socket.close.call_args.kwargs["code"], 1000)
+
+    async def test_server_probe_keeps_timerless_client_alive_without_ddp(self):
+        socket = Socket()
+        messages = asyncio.Queue()
+        socket.receive = messages.get
+        probes = 0
+        async def reply(data):
+            nonlocal probes
+            if data["type"] == "ping":
+                probes += 1
+                messages.put_nowait({"type": "websocket.receive", "text": "pong"})
+                if probes == 4:
+                    messages.put_nowait({"type": "websocket.disconnect", "code": 1000})
+        socket.send_json.side_effect = reply
+        self.capture.timeout = 0.06
+        await self.capture.receive(socket)
+        self.assertEqual(probes, 4)
+        socket.close.assert_not_called()
+        self.engine.send_ddp.assert_not_called()
+        self.assertFalse(self.capture.active)
+        self.engine.close.assert_called_once()
 
     async def test_heartbeat_keeps_static_source_connected_without_ddp(self):
         socket = Socket()
@@ -110,12 +133,12 @@ class RemoteCaptureTests(unittest.IsolatedAsyncioTestCase):
         async def receive():
             nonlocal calls
             calls += 1
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.06)
             if calls <= 6:
                 return {"type": "websocket.receive", "text": "ping"}
             return {"type": "websocket.disconnect", "code": 1000}
         socket.receive = receive
-        self.capture.timeout = 0.04
+        self.capture.timeout = 0.3
         await self.capture.receive(socket)
         socket.close.assert_not_called()
         self.assertEqual(socket.send_json.await_count, 7)

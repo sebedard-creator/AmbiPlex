@@ -1,5 +1,48 @@
 # Journal des Modifications (Changelog) - AmbiPlex
 
+## 2026-10-16 - Guide PlayStation et préparation du commit
+
+- Guide `PLAYSTATION_SETUP.md` séparé : PS4/PS5 standard,
+  association Chiaki-ng, deux utilisateurs pour garder la manette sur console,
+  choix de fenêtre dans Chrome, dépannage et références en amont.
+- Parcours grand public uniquement, sans publication de compte, IP personnelle,
+  code d'association ou jeton.
+- Libellé « PlayStation Remote Play » dans l'interface ; identifiant interne
+  `ps4` et liens existants conservés, fonctionnement de capture inchangé.
+- PS4 fonctionnelle dans Chrome selon le retour utilisateur ; Firefox gelait
+  alors que Chiaki continuait. PS5 documentée mais pas testée sur matériel.
+- README, architecture, reprise et tests harmonisés. Les anciens screenshots
+  restent datés explicitement, sans prétendre montrer la nouvelle sélection.
+- Calibration des couleurs PS4 encore en cours : essai gamma WLED, pas de
+  correction logicielle, saturation artificielle ou résultat physique annoncé.
+- Vérifications du 16 octobre : 58 tests Python, capture navigateur, 12 mises
+  en page et 34 comparaisons exactes du simulateur réussis. Liens locaux vérifiés,
+  contrôle des données sensibles sans détection, configuration locale ignorée.
+
+## 2026-10-15 - Préparation du test PS4 Remote Play
+
+- Déconnexion par inactivité : sonde serveur après cinq secondes sans message et
+  réponse navigateur sur événement WebSocket, sans dépendance au minuteur de
+  présence en arrière-plan. Sécurité de quinze secondes pour un client muet
+  conservée. Redémarrage via PyManager et rechargement de `/remote` requis.
+- Régression navigateur : maintien de la connexion pendant 17 secondes sans
+  images ni minuteur de présence, puis couleurs LED identiques à la reprise.
+  Les 58 tests Python passent, dont 12 tests de capture ; aucun changement de rendu LED.
+- Profil PS Remote Play (PS4) privilégiant une fenêtre dans le sélecteur de
+  partage ; Xbox conserve la préférence pour un onglet. Accès direct avec
+  `/remote?source=ps4`, sélection verrouillée pendant le partage.
+- Affichage de la surface réellement rapportée et des dimensions capturées,
+  réinitialisés à l'arrêt. Message adapté en cas de source illisible.
+- Même capture RGBA8 160x90, même cadence cible et même moteur LED ; pas de
+  changement des filtres, de la configuration ou de l'authentification.
+- Tests synthétiques de fenêtre 540p, recadrage d'une barre d'outils, couleurs
+  LED exactes en lecture directe, repli vidéo, erreurs et libération de capture.
+- Tests de capture navigateur réussis, 12 dispositions web vérifiées et
+  11 tests Python de capture réussis. Page PS4 servie avec succès par le service
+  existant, sans redémarrage. Captures desktop/mobile synthétiques inspectées.
+- Guide d'essai 540p/haute cadence, contrôles de cadrage, manette et signal TV.
+  Support PS4 expérimental : validation physique encore à faire.
+
 ## 2026-09-14 - Rover : interface et gestion des lots
 
 - Interface native harmonisée avec Plex et Remote Play : fond charbon, commandes

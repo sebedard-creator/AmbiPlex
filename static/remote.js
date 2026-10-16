@@ -6,6 +6,9 @@ const canvas = byId('frame');
 const context = canvas.getContext('2d', {alpha: false, willReadFrequently: true, colorSpace: 'srgb'});
 let session = null;
 
+// A bookmark can select PS4 without changing the saved Plex/WLED settings.
+if (new URLSearchParams(location.search).get('source') === 'ps4') byId('source').value = 'ps4';
+
 function stopCapture(message = 'Plex actif') {
     const previous = session;
     session = null;
@@ -22,10 +25,13 @@ function stopCapture(message = 'Plex actif') {
     context.clearRect(0, 0, 160, 90);
     byId('start').disabled = false;
     byId('stop').disabled = true;
+    byId('source').disabled = false;
     byId('state').textContent = message;
     byId('measured-fps').textContent = '0 images/s';
     byId('rtt').textContent = '-';
     byId('processing').textContent = '-';
+    byId('capture-surface').textContent = '-';
+    byId('source-size').textContent = '-';
 }
 
 function fail(current, message) {
@@ -86,6 +92,11 @@ function sendFrame(current, source, width, height, now) {
     if (!current.ready || current.pending || current.socket.readyState !== WebSocket.OPEN
         || current.socket.bufferedAmount || now - current.lastFrame < interval - 2) return;
     try {
+        if (width !== current.width || height !== current.height) {
+            current.width = width;
+            current.height = height;
+            byId('source-size').textContent = `${width} × ${height}`;
+        }
         context.drawImage(source, ...cropRect(width, height), 0, 0, 160, 90);
         const rgba = context.getImageData(0, 0, 160, 90).data;
         current.pending = true;
@@ -109,10 +120,14 @@ byId('start').addEventListener('click', async () => {
     session = current;
     byId('start').disabled = true;
     byId('stop').disabled = false;
+    byId('source').disabled = true;
     byId('state').textContent = 'Sélection de la source';
     try {
         const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: {displaySurface: 'browser', frameRate: {ideal: 60, max: 60}},
+            video: {
+                displaySurface: byId('source').value === 'ps4' ? 'window' : 'browser',
+                frameRate: {ideal: 60, max: 60},
+            },
             audio: false, selfBrowserSurface: 'exclude', surfaceSwitching: 'exclude',
         });
         if (session !== current) {
@@ -120,13 +135,16 @@ byId('start').addEventListener('click', async () => {
             return;
         }
         current.stream = stream;
-        stream.getVideoTracks()[0].addEventListener('ended', () => {
+        const track = stream.getVideoTracks()[0];
+        const surfaces = {browser: 'Onglet', window: 'Fenêtre', monitor: 'Écran'};
+        byId('capture-surface').textContent = surfaces[track.getSettings().displaySurface] || '-';
+        track.addEventListener('ended', () => {
             if (session === current) stopCapture();
         });
         if (window.MediaStreamTrackProcessor) {
             // Consume capture frames independently of video rendering/visibility.
             current.reader = new MediaStreamTrackProcessor({
-                track: stream.getVideoTracks()[0], maxBufferSize: 1,
+                track, maxBufferSize: 1,
             }).readable.getReader();
         } else {
             video.srcObject = stream;
@@ -147,6 +165,8 @@ byId('start').addEventListener('click', async () => {
                         && !current.pending && !socket.bufferedAmount) socket.send('ping');
                 }, 1000);
                 byId('state').textContent = 'Remote Play actif';
+            } else if (data.type === 'ping') {
+                if (socket.readyState === WebSocket.OPEN) socket.send('pong');
             } else if (data.type === 'frame') {
                 clearTimeout(current.watchdog);
                 current.pending = false;
@@ -169,7 +189,11 @@ byId('start').addEventListener('click', async () => {
             current.callback = video.requestVideoFrameCallback(timestamp => onFrame(current, timestamp));
         }
     } catch (error) {
-        fail(current, error.name === 'NotAllowedError' ? 'Partage annulé ou refusé.' : error.message);
+        const messages = {
+            NotAllowedError: 'Partage annulé ou refusé.',
+            NotReadableError: 'La source ne peut pas être capturée. Garde sa fenêtre ouverte et sélectionne-la à nouveau.',
+        };
+        fail(current, messages[error.name] || error.message);
     }
 });
 
