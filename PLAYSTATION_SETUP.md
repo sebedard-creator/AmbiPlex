@@ -1,12 +1,26 @@
 # PlayStation Setup: PS4 / PS5 + Chiaki-ng + AmbiPlex
 
-[Back to AmbiPlex](README.md)
+[Back to AmbiPlex](README.md) | [Xbox Series X|S guide](XBOX_SETUP.md)
 
-Chiaki-ng supports standard PS4 and PS5 consoles.
+**No jailbreak is required for standard PS4 or PS5 consoles.**
+Chiaki-ng supports their normal Remote Play functionality.
 This guide uses a local Remote Play connection on the AmbiPlex Windows PC, then
 captures its application window in Chrome. Chiaki-ng is an independent,
 unofficial Remote Play client, not a Sony product.
 [Chiaki-ng project](https://github.com/chiaki-ng/chiaki-ng)
+
+**No PSN sign-in is required in Chiaki for manual LAN pairing.** You need the
+console profile's **Account-ID** and the console's pairing **PIN**, not its
+email/password. The field called `PSN Account-ID` is an identifier, not a request
+to log in. This assumes the chosen console profile can already use Remote Play;
+initial profile activation on an unmodified console can have Sony account
+requirements. Manual LAN pairing does not bypass that console-side prerequisite.
+[Chiaki-ng manual registration](https://github.com/chiaki-ng/chiaki-ng/blob/main/docs/setup/configuration.md#registering-your-playstation)
+
+The main steps below are for standard consoles. An
+[optional PS4 appendix](#optional-offline-ps4-profile-activation) covers profile
+activation on an **already-jailbroken PS4**. Ordinary PS4/PS5 users should skip
+it: neither Apollo nor offline activation is part of the standard setup.
 
 ```text
 PS4 / PS5 -------- HDMI directly ----------------> TV
@@ -27,7 +41,7 @@ Play. Check the actual TV output on your setup.
 
 | Setup | Status |
 | --- | --- |
-| Ordinary PS4 or PS5 | Supported by Chiaki-ng; follow the standard account setup below. |
+| Ordinary PS4 or PS5 | Supported by Chiaki-ng; use a console profile enabled for Remote Play. |
 | PS4 with Chiaki-ng and Chrome | Live operation confirmed in AmbiPlex testing. A separate console user resolved the local-controller conflict; switching from Firefox to Chrome resolved the reported long-session capture freeze. |
 | PS5 with AmbiPlex | Uses the same application-window capture path, but has not been physically validated in this project. |
 
@@ -63,13 +77,13 @@ The second arrangement keeps controller input off the PC/network path. It is the
 PS4 arrangement tested here. It still requires a working Remote Play video
 session; it is not a special view-only mode in Chiaki.
 
-Create or use a second console user and sign it in
-to its own PlayStation account through the normal console menus. Register that
-account in Chiaki, not your original gaming account. Creating only another
-configuration profile inside Chiaki is not the same thing.
+For the two-user arrangement, use a second console user that can use Remote
+Play. Register **that user's Account-ID** in Chiaki, not your original gaming
+user's ID. Creating only another configuration profile inside Chiaki is not the
+same thing. This guide does not require creating a new PSN account if you already
+have a suitable console profile and its Account-ID.
 
 Do not change the identity of your existing gaming user or move its saves.
-Use the normal PlayStation account setup for that dedicated user.
 
 ## 2. Enable Remote Play
 
@@ -91,22 +105,26 @@ Features Available in Rest Mode` or PS5 `System > Power Saving > Features
 Available in Rest Mode`. Skip wake testing until a powered-on connection works.
 [Sony's rest-mode instructions](https://www.playstation.com/en-gb/support/games/playstation-remote-play-on-pc-and-mac/)
 
-Account enrollment can require Internet/PSN. A local Chiaki stream then travels
-over the LAN, not through a public video-streaming service. Follow the normal
-PlayStation account and Remote Play requirements for your console.
+The connection described here is a direct LAN connection, not Chiaki's separate
+remote-connection-via-PSN feature. Once the console profile is ready and its
+Account-ID is known, signing in to PSN in Chiaki is not a pairing step.
 
 ## 3. Register Chiaki-ng
 
 1. Open Chiaki-ng and select the discovered console. If absent, use
    `Settings > Consoles > Register New` and enter its LAN IP as `Host`.
-2. Select the actual console type. For `PSN Account-ID`, use Chiaki's `PSN Login`
-   for the account selected above, or its `Public Lookup` if available.
+2. Select the actual console type and paste the chosen profile's **Account-ID
+   in Chiaki's expected Base64 form** into `PSN Account-ID`. If it is already
+   known, skip `PSN Login` entirely. If not, `Public Lookup` (when available)
+   or `PSN Login` are optional ways of obtaining it for a PlayStation account.
 3. Generate a fresh console pairing code and enter it as `Remote Play PIN`.
 4. Register, connect and verify the moving game image in Chiaki before opening
    AmbiPlex capture. A console login passcode is different from the pairing PIN.
 
-Account-ID is not the account's email or online nickname. Keep pairing codes,
-OAuth redirect URLs/tokens, registration keys and client configuration private.
+Account-ID is not an email, password, online nickname or the shorter local
+User-ID. A random identifier will not match the chosen console profile.
+Keep pairing codes, OAuth redirect URLs/tokens, registration keys and client
+configuration private.
 [Chiaki-ng registration reference](https://github.com/chiaki-ng/chiaki-ng/blob/main/docs/setup/configuration.md)
 
 Leave **Auto-connect off until the controller arrangement is working**. Later,
@@ -197,3 +215,44 @@ The current PS4 gamma test has no confirmed outcome yet.
 
 Do not commit personal IDs, PINs, client exports, router configuration or screenshots
 of registration dialogs. This repository contains no ready-to-use console credentials.
+
+## Optional: Offline PS4 Profile Activation
+
+**Skip this section for standard PS4/PS5 setup.** A direct LAN connection without
+PSN sign-in in Chiaki does not itself require a jailbreak. This separate procedure
+is only for an **already-jailbroken PS4** whose local profile needs offline
+activation. It does not apply to PS5 or unmodified consoles.
+
+<details>
+<summary>Already have a jailbroken PS4 and Apollo Save Tool? Show the optional steps.</summary>
+
+Keep your existing firmware/setup. The console must already support Remote Play;
+this is not a jailbreak installation guide or a reason to modify a standard console.
+
+1. Create a dedicated local `AmbiPlex` user. Preserve the original gaming user's
+   Account-ID and saves.
+2. In Apollo, choose `User Tools > Activate PS4 Accounts` and **only that new
+   user**. Keep the generated ID, confirm activation and follow Apollo's
+   sign-out/restart instructions. Skip activation if that profile is already activated.
+3. From that profile, read the 16-character hexadecimal **Account-ID** in Apollo's
+   `About`. Do not use the shorter User-ID.
+4. Convert the Account-ID locally to the form Chiaki expects:
+
+```powershell
+$accountId = Read-Host 'Dedicated PS4 profile Account-ID (16 hex digits)'
+if ($accountId -notmatch '^[0-9A-Fa-f]{16}$') { throw 'Expected 16 hex digits' }
+$bytes = [BitConverter]::GetBytes([Convert]::ToUInt64($accountId, 16))
+if (-not [BitConverter]::IsLittleEndian) { [Array]::Reverse($bytes) }
+[Convert]::ToBase64String($bytes)
+```
+
+5. Register Chiaki by LAN IP with that Base64 ID and a fresh PS4 `Add Device` PIN.
+   Skip `PSN Login`/`Public Lookup`. Return to [step 4](#4-keep-the-controller-on-the-console)
+   for the controller and Chrome capture setup.
+
+[Apollo's offline activation reference](https://github.com/bucanero/apollo-ps4/blob/main/docs/usage.md#activating-offline-profiles)
+
+If blocking Internet at the router, preserve and verify PC-to-console LAN access;
+some pause/isolation features block both. Do not publish your ID, PIN or client keys.
+
+</details>

@@ -1,13 +1,15 @@
 # Architecture WLED Subtitles
 
-État implémenté au 2026-09-14. Ce document remplace les propositions initiales.
+État implémenté au 2026-09-14 ; documentation actualisée au 2026-10-16.
+Ce document remplace les propositions initiales.
 
 ## Objectif
 
 **Cette fonctionnalité est optionnelle et concerne les vidéos Plex.** Le rendu
-Plex temps réel fonctionne sans ces fichiers. Le support Xbox Series X utilise
-la capture en direct de Remote Play et ne lit ni ne génère de WLED Subtitles.
-Les détails de la source Xbox se trouvent dans [architecture.md](architecture.md).
+Plex temps réel fonctionne sans ces fichiers. Les sources console utilisent
+la capture en direct de Remote Play et ne lisent ni ne génèrent de WLED Subtitles.
+Leurs guides sont séparés : [Xbox Series X|S](XBOX_SETUP.md) et
+[PlayStation PS4 / PS5](PLAYSTATION_SETUP.md).
 
 Précalculer les couleurs d'une vidéo pour éviter son décodage par MPV à chaque
 lecture. La piste est spécifique aux dimensions LED et à la profondeur de capture

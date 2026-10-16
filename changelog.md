@@ -2,11 +2,23 @@
 
 ## 2026-10-16 - Guide PlayStation et préparation du commit
 
+- README raccourci et réorganisé : titre Plex, Xbox Series X|S, PS4 et PS5,
+  choix du parcours, installation, démarrage Plex et liens de référence.
+- Guide `XBOX_SETUP.md` séparé ; guide PlayStation existant conservé, avec liens
+  croisés. Les procédures console et le dépannage ne sont plus dans le README.
+- Xbox Series S incluse selon la compatibilité Remote Play annoncée par Xbox,
+  sans prétendre à un essai AmbiPlex sur ce modèle. Series X seule testée ici.
+- Galerie repliable et détails CLI/Rover renvoyés vers la référence WLED Subtitles.
+  Aucun changement du logiciel ou des réglages de rendu.
+- Association Chiaki clarifiée : parcours LAN par Account-ID et PIN, sans
+  connexion PSN dans le client si l'identifiant est déjà connu. Les conditions
+  initiales d'activation du profil sur console restent distinctes.
 - Guide `PLAYSTATION_SETUP.md` séparé : PS4/PS5 standard,
   association Chiaki-ng, deux utilisateurs pour garder la manette sur console,
   choix de fenêtre dans Chrome, dépannage et références en amont.
-- Parcours grand public uniquement, sans publication de compte, IP personnelle,
-  code d'association ou jeton.
+- Parcours standard en premier, explicitement sans jailbreak requis. Annexe
+  repliable pour l'activation d'un profil PS4 déjà jailbreaké avec Apollo,
+  indépendante du setup PS4/PS5 normal, sans compte ni code personnel publié.
 - Libellé « PlayStation Remote Play » dans l'interface ; identifiant interne
   `ps4` et liens existants conservés, fonctionnement de capture inchangé.
 - PS4 fonctionnelle dans Chrome selon le retour utilisateur ; Firefox gelait

@@ -11,7 +11,8 @@ perceptible et avec le téléviseur restant en Dolby Vision. Ce retour ne consti
 pas une mesure de latence ni une garantie pour toutes les installations.
 
 - **Xbox Remote Play** : capture d'un onglet, lecture directe des images, calcul
-  des couleurs et envoi DDP. Aucun préencodage ni carte de capture HDMI.
+  des couleurs et envoi DDP. Parcours Xbox Series X|S, avec essai physique sur
+  Series X uniquement. Aucun préencodage ni carte de capture HDMI.
 - **PlayStation Remote Play** : capture de la fenêtre Chiaki-ng, fonctionnement
   PS4 confirmé dans Chrome. PS5 documentée, non testée ici ; calibration des
   couleurs PS4 encore en cours. Voir [le guide dédié](PLAYSTATION_SETUP.md).
@@ -196,6 +197,8 @@ l'installation locale et du conflit de port résolu sont dans [handoff.md](hando
 ## Documents associés
 
 - [Utilisation et installation](README.md)
+- [Configuration Xbox Series X|S](XBOX_SETUP.md)
+- [Configuration PlayStation PS4 / PS5](PLAYSTATION_SETUP.md)
 - [Format et lecture WLEDSUB](architecture_WLED_subs.md)
 - [Tests et résultats](tests/README.md)
 - [Journal des modifications](changelog.md)

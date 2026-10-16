@@ -1,335 +1,110 @@
-# AmbiPlex
+# AmbiPlex - Plex, Xbox Series X|S, PS4 & PS5
 
-**Real-time ambient lighting for Plex movies, Xbox games and PlayStation Remote Play.**
+**Real-time WLED ambient lighting for your movies and games.**
 
-## NEW: Xbox Series X + WLED
+AmbiPlex follows local Plex playback or reads a console's Remote Play image on
+your PC. Your console stays connected directly to the TV, while the same LED
+engine handles color sampling, brightness, smoothing and strip layout.
 
-### Your Xbox games, all around your screen.
+**No HDMI splitter. No capture card. No preencoding required.**
+WLED Subtitles are an optional optimization for Plex movies, never a requirement.
 
-AmbiPlex now turns **Xbox Remote Play into live WLED lighting**. Play on your
-TV with your controller connected to the Xbox, while AmbiPlex reads the Remote
-Play image on your PC and brings its colors to your LED strip.
+## Choose Your Setup
 
-**No capture card. No HDMI splitter. No Twitch broadcast. No preencoding.**
-
-Your Xbox stays connected **directly to your TV**. The browser capture feeds
-the same LED engine used for Plex, with your existing layout, brightness,
-smoothing and routing.
-
-> **Tested on a real Xbox Series X and WLED setup.**
-> In testing, colors matched with **no perceptible lighting delay**, and the
-> TV **remained in Dolby Vision** during Remote Play.
-> These are observations from the tested setup, not a measured zero-latency
-> result or a guarantee for every TV, PC and network.
-
-```text
-Xbox Series X ---- HDMI directly ----------------> TV
-      |
-      +---- Remote Play ---> PC / AmbiPlex ------> WLED strip
-```
-
-**[Set up Xbox lighting](#xbox-remote-play-setup)** ·
-**[Set up PlayStation lighting](PLAYSTATION_SETUP.md)** ·
-**[Use Plex](#plex-playback)** ·
-**[Install AmbiPlex](#installation)**
-
-## Sources, One LED Setup
-
-| Source | How it works | Preencoding |
+| Source | Setup guide | Validation |
 | --- | --- | --- |
-| **Xbox Remote Play** | Capture a browser tab on the AmbiPlex PC and send its colors to WLED. | **Never required.** |
-| **PlayStation Remote Play** | Capture Chiaki-ng on the AmbiPlex PC. PS4 operation confirmed in Chrome; PS5 setup documented, physical validation pending. | **Never required.** |
-| **Local Plex playback** | Follow your selected local player and extract colors with MPV. | **Not required.** Optional WLED Subtitles can reduce decoding work. |
+| Xbox Series X\|S | **[Xbox setup](XBOX_SETUP.md)** | Series X tested; Series S supports Xbox Remote Play but has not been tested here. |
+| PS4 / PS5 | **[PlayStation + Chiaki-ng setup](PLAYSTATION_SETUP.md)** | PS4 working in Chrome; PS5 not yet physically tested. PS4 color calibration is ongoing. |
+| Plex | **[Plex playback](#plex-playback)** | Real-time MPV rendering or optional precomputed tracks. |
 
-The Plex dashboard, Remote Play page and encoder share a compact dark interface.
-Application controls and logs are in French.
+The console guides cover connection, controller setup, capture and troubleshooting.
+An active Plex session is **not required** for console lighting.
+Standard PS4/PS5 setup does **not require a jailbreak**.
 
-**WLED Subtitles are entirely optional.** Console lighting and standard
-real-time Plex playback do not require generated LED tracks.
+## Highlights
 
-## Features
+- Live console capture with a 30/60 fps target and adjustable framing.
+- Automatic local Plex synchronization with a selected master player.
+- Per-side brightness, black-bar detection, smoothing and LED routing.
+- A live LED simulator, shared web interface and **Retour à Plex** control.
+- Optional web and Rover batch encoders for WLED Subtitles.
 
-- **Xbox Series X integration through Remote Play**, tested with Chrome.
-- **PlayStation application-window capture**, working with Chiaki-ng on PS4 in Chrome; PS5 guide included.
-- Browser capture with a 160x90 sampling image, 30/60 fps target and adjustable framing.
-- Direct capture-track processing in Chrome/Edge, without depending on preview rendering.
-- A single outstanding image to prevent a backlog; connection keepalives for static scenes.
-- Exclusive WLED control during capture, with a **Retour à Plex** button.
-- Strict local Plex session selection with a configurable master player.
-- Real-time MPV capture, black-bar detection, per-side brightness and linked controls.
-- Temporal smoothing, strip routing, corner margins and per-side LED offsets.
-- DDP output, a live LED simulator and monitoring over SSE.
-- Optional WLED Subtitles, a web encoder and the Windows Rover batch encoder.
-
-## Requirements
-
-### Common Installation
-
-- Windows; tested with Python 3.11 and 64-bit libmpv.
-- A WLED-compatible controller and addressable LEDs.
-- A PC that can reach the controller on the local network.
-- The Python dependencies and `libmpv-2.dll` described below. The current
-  application still imports the MPV components when using console capture.
-
-### For Xbox
-
-- Xbox Remote Play working in Chrome or Edge **on the AmbiPlex PC**.
-- The capture page and the Xbox tab open in the same browser.
-- Xbox Series X is the physically tested console. Other console/browser
-  combinations have not been validated in this project.
-- 720p is sufficient for the 160x90 LED sampling image; 1080p is not required.
-
-### For Plex
-
-- A Plex server and a Plex client on the local network.
-- Video paths reported by Plex accessible from the AmbiPlex computer.
-
-An active Plex playback session is **not** required for console capture.
-
-### For PlayStation (PS4 / PS5)
-
-- [Chiaki-ng](https://github.com/chiaki-ng/chiaki-ng) connected to the console on the AmbiPlex PC.
-- **Chrome recommended** for capture; the PS4 test froze in Firefox and worked in Chrome.
-- A dedicated second console user when keeping the controller directly on the console.
-- Standard PS4/PS5 setup using a PlayStation account and Remote Play.
-- See the [complete PlayStation setup guide](PLAYSTATION_SETUP.md) for accounts,
-  pairing, local controllers and troubleshooting. PS5 has not been tested here;
-  PS4 saturation/near-black calibration remains in progress.
-
-FFmpeg is needed **only for optional preencoding**, not for standard real-time
-playback or console capture. The encoder checks the project directory and PATH,
-then downloads a Windows build if none is available.
+Controls and logs are in French. Use **Chrome for console capture**; the PS4
+capture froze in Firefox during testing while Chiaki remained connected.
 
 ## Installation
 
-1. Clone this repository and open a terminal in the project directory.
+You need Windows, Python 3.11 (tested), a WLED controller and addressable LEDs
+reachable from the PC. Plex also needs accessible video paths; console-specific
+requirements are in the guides above.
+
+1. Clone the repository and open a terminal in its directory.
 2. Create the environment: `python -m venv venv`.
 3. Install dependencies: `venv\Scripts\python.exe -m pip install -r requirements.txt`.
-4. Place `libmpv-2.dll` at the project root. The optional
-   `download_mpv.py` helper downloads it from the upstream Windows builds.
-5. Start AmbiPlex using **one** method: `start.bat`, or your Python service manager.
-6. Open [the dashboard](http://localhost:5777), enter the WLED address and LED
-   layout, then apply the calibration.
+4. Place the 64-bit `libmpv-2.dll` at the project root; `download_mpv.py` can
+   download it. MPV is currently an installation dependency even for console mode.
+5. Start using **one method**: `start.bat` or your Python service manager.
+6. Open [AmbiPlex](http://localhost:5777), enter the WLED address and LED layout,
+   then apply the calibration. Continue with your source's setup guide.
 
-**Upgrading an existing installation?** Reinstall the requirements to include
-the new `websockets` dependency. Restart through your usual service manager
-after Python changes, then refresh the browser to load the updated interface.
+**Using PyManager?** Select `venv\Scripts\python.exe`, script `web.py`, and the
+project directory as the working directory. Use its Start/Stop controls; do not
+launch another copy with `start.bat`. AmbiPlex uses port **5777**.
 
-### Service Managers, Including PyManager
-
-Use the project's `venv\Scripts\python.exe`, pass `web.py` as the script,
-and set the working directory to the AmbiPlex folder. The web port is **5777**.
-
-If PyManager already manages AmbiPlex, use its Start/Stop controls.
-**Do not also launch `start.bat` or another copy of `web.py`.** A second
-instance cannot bind port 5777 and exits, even though the first instance is
-still serving the interface. Different launch arguments can also prevent a
-manager from recognizing an independently started instance.
-
-## Xbox Remote Play Setup
-
-1. Keep the Xbox connected directly to your TV and the controller connected
-   to the console. Start your game.
-2. Open Xbox Remote Play on the AmbiPlex PC in Chrome or Edge. Start with
-   **720p** and confirm that the game image looks correct.
-3. In the **same browser**, open [AmbiPlex Remote Play](http://localhost:5777/remote),
-   preferably in a separate window.
-4. Leave **Source** on **Xbox Remote Play**, click **Choisir la source** and select
-   the **Xbox Remote Play tab**, without audio.
-5. Leave the capture cadence at **60 images/s** for the first test. It is a target,
-   not a guarantee that the source, browser and PC deliver 60 distinct frames/s.
-6. Check the preview and enjoy the lights. Adjust framing if the preview includes
-   browser-player controls or cuts off part of the game.
-
-Centered 16:9 framing is enabled by default. Four crop margins are available
-for off-center video. The preview shows the image actually supplied to the LED
-engine, not a separate cosmetic preview.
-
-The existing layout, brightness, smoothing, black-bar detection and routing
-settings are reused. Xbox capture does not overwrite Plex synchronization
-settings or save its framing/cadence controls to `config.json`.
-
-### Switching Back to Plex
-
-Click **Retour à Plex** to stop capture and return to the dashboard. Plex can
-then resume LED output. This does **not** stop the console game or its Remote
-Play session.
-
-**Arrêter**, ending browser sharing or closing the capture page also releases
-WLED control. A connection with no frames or keepalives expires after fifteen
-seconds. Last colors may remain until Plex or WLED's realtime timeout takes over;
-stopping capture does not explicitly power off the strip.
-
-### Capture and Latency Notes
-
-- Open the capture page through **localhost**, not the PC's LAN address.
-  Capture WebSockets require a loopback connection and a matching local Origin.
-- Images are sent locally as RGBA8, with no additional lossy video encoder
-  between browser capture and the LED engine. Remote Play itself remains a
-  compressed video source.
-- Only one image awaits acknowledgment; intermediate images are skipped
-  instead of accumulating in a queue.
-- The displayed timings measure **PC transport and LED processing only**.
-  They do not measure the full console-to-WLED delay.
-- Smoothing deliberately softens and delays transitions. Use your normal LED
-  settings and judge the result on the strip.
-- Chrome/Edge use direct track processing. Firefox's video-rendering fallback
-  froze during the physical PS4 test; use Chrome for PlayStation capture.
-  Freezing/discarding a tab, source suspension or a network interruption can
-  still interrupt capture, including in Chromium-based browsers.
-- After five seconds without a message, the server probes the browser directly;
-  its reply does not depend on background JavaScript timers. A silent client is
-  still released after the fifteen-second inactivity deadline. Keep the source
-  window unminimized; a keepalive cannot restore suspended video frames.
-- Refreshing the capture page ends sharing; select the tab or application window again afterward.
-- No capture file, Twitch relay or browser extension is required.
-
-## PlayStation Remote Play Setup
-
-**[Read the PS4 / PS5 + Chiaki-ng guide](PLAYSTATION_SETUP.md).** It covers normal
-consoles, registration and a controller connected directly to the console.
-PS5 AmbiPlex operation still needs physical validation.
-
-Once Chiaki shows the game, open [PlayStation capture](http://localhost:5777/remote?source=ps4)
-in **Chrome**, select **PlayStation Remote Play**, and share the **Chiaki stream
-window**. Keep it unminimized, check the preview and adjust crop margins as needed.
-The legacy `source=ps4` link selects the same window profile for either console.
-No account credentials are entered into AmbiPlex and no HDMI device is added.
-
-Live PS4 operation and the separate-user controller arrangement work in the
-tested setup. Color saturation/near-black calibration is still being evaluated;
-changing WLED's realtime gamma also affects Plex and Xbox. The guide separates
-that calibration from connection stability and explains how to compare sources.
+After upgrading, reinstall requirements and restart through the same manager
+for Python changes. Reload the browser for interface changes; reloading an
+active capture ends sharing and requires selecting the source again.
 
 ## Plex Playback
 
-1. Enter the Plex server address and token in the dashboard.
-2. Set **Lecteur local** to the player's name as reported by Plex.
-   Case, underscores and extra whitespace are ignored: `Sony_Bravia` matches
-   `Sony Bravia`. Other name differences do not match.
-3. Configure WLED and start playback on that player.
-4. Adjust the LED settings and synchronization offset as needed.
+1. Enter your Plex server address and token in the dashboard.
+2. Set **Lecteur local** to the player name reported by Plex.
+3. Start a movie on that player and adjust LED settings or synchronization offset.
 
-MPV extracts the colors automatically. There are **no additional files to
-prepare** for standard real-time playback.
+MPV extracts colors automatically, with no extra media files. Names ignore case,
+underscores and extra whitespace: `Sony_Bravia` matches `Sony Bravia`.
+With a master selected, AmbiPlex waits for it; an empty name enables automatic
+selection among verified local video sessions. Remote/relayed Plex sessions are
+excluded, independently of user-selected console capture.
 
-When a master name is set, AmbiPlex waits for that player instead of selecting
-another device. An empty name enables automatic selection among verified local
-video sessions. Remote and relayed **Plex sessions** are rejected; this restriction
-does not disable the separately selected **console capture source**.
+### Optional WLED Subtitles
 
-A private IP alone is not sufficient. Client identifiers and session keys are
-checked together. Selection relies on Plex's LAN classification, which VPNs or
-unusual network settings can affect.
+Precompute movie colors to reduce playback decoding work. Open the web encoder
+or launch `start_rover.bat` to scan, filter and encode videos in batches.
+FFmpeg is needed only for this optional step, not ordinary playback or capture.
 
-## Optional: WLED Subtitles
+Generated `Film.wledsub.lz4` files sit beside their videos. LED dimensions must
+match; changes to capture depth or baked black-bar processing require reencoding.
+Missing/incompatible tracks fall back to MPV. See the
+[WLED Subtitles reference](architecture_WLED_subs.md) for CLI usage, Rover and format details.
 
-Skip this section for console capture or standard real-time Plex rendering.
-For selected movies, you can optionally precompute LED tracks to reduce CPU/GPU decoding work.
+## Limits and Security
 
-Open the web encoder, or run `start_rover.bat` for batch encoding.
-The CLI is also available:
+- The current DDP sender supports up to **480 LEDs**; larger layouts are truncated.
+- TV video modes, lighting latency and color accuracy depend on the setup.
+  Series X testing retained TV Dolby Vision with no perceptible lighting delay;
+  this is an observation, not a universal guarantee or instrumented measurement.
+- Keep the server on a trusted network: the dashboard has **no application authentication**.
+- `config.json` contains local settings and the Plex token and is ignored by Git.
+  Keep console account IDs, pairing codes and client credentials out of commits too.
 
-```powershell
-venv\Scripts\python.exe bake.py "D:\Movies\Film.mkv" --leds-x 64 --leds-y 36 --depth 8 --threads 0
-```
+## Reference
 
-### Rover Batch Encoder
+- [Architecture and runtime behavior](architecture.md)
+- [Tests and validation results](tests/README.md)
+- [Changelog](changelog.md)
 
-Rover now shares AmbiPlex's charcoal-and-green design in a native Windows window.
-It scans folders and subfolders in the background and lists videos, existing
-tracks and encoding status in a compact table.
+<details>
+<summary>Interface screenshots</summary>
 
-- Search by filename or relative path; filter missing tracks, existing tracks or errors.
-- Select all visible videos, only missing tracks, or a range with Shift; Ctrl toggles individual selections.
-- Monitor file progress, overall batch progress and the most recent 200 log lines.
-- Adjust FFmpeg threads; LED dimensions and capture depth come from the existing configuration.
-- Stop after the current file, or finish that file before closing Rover.
-- Confirm regeneration of existing tracks; conflicting output names are rejected.
+Captured September 14, 2026, before the console-source selector was added.
+Pages are idle; the Plex token is omitted and the WLED address is an example.
 
-Selection actions apply to visible rows. Filtering removes hidden files from the
-selection. Encoding remains sequential, and settings are never saved by Rover.
-The same `bake.py` filters, color sampling and WLEDSUB format are used unchanged.
-Rover checks the encoder exit code and expected output file; it does not perform
-a full integrity check on every generated track.
+![Remote Play capture interface](screenshot4.png)
+![Plex dashboard](screenshot1.png)
+![WLED calibration and simulator](screenshot2.png)
+![Optional WLED Subtitles encoder](screenshot3.png)
 
-### Track Compatibility
-
-The output sits beside the video as `Film.wledsub.lz4`. Its LED dimensions must
-match the configuration. Capture depth and black-bar processing are baked into
-the track; changing those requires reencoding. Brightness, smoothing, routing
-and side offsets remain adjustable during playback.
-
-Compatible tracks are decompressed in 1 MiB blocks into a disk cache and accessed
-with NumPy memmap. Detection is rechecked about once per second during playback.
-Missing or incompatible tracks use MPV. Precomputation reduces CPU/GPU work but
-does not eliminate it; RGB565 also has lower color precision than RGB888.
-These tracks are not used for live console gameplay.
-
-## Validation and Limits
-
-See [test instructions and results](tests/README.md). Regression checks were
-rerun on October 16, 2026; physical observations are identified separately.
-
-| Check | Recorded result |
-| --- | --- |
-| Python regression suite | 58 tests passed after the Remote Play keepalive fix. |
-| LED simulator | 34 exact canvas comparisons against the reference implementation. |
-| Remote Play browser pipeline | Synthetic colors, lifecycle, static scenes, backpressure and return-to-Plex checks passed. |
-| Shared web interface | 12 layouts tested across 320, 390, 768 and 1440 pixels. |
-| Physical Xbox Series X + WLED | Matching colors, no perceptible delay and TV Dolby Vision retained in the tested setup. |
-| Physical PS4 + Chiaki-ng | Working in Chrome with a separate console user for capture. Firefox freeze reported; saturation/near-black calibration pending. |
-| PS5 | Setup documented from upstream references; not physically tested here. |
-| Physical Plex local/remote selection | End-to-end verification after the selection changes remains outstanding. |
-
-These results do not establish universal hardware compatibility or zero latency.
-Function benchmarks exclude whole-application decoding, capture and networking.
-
-The current DDP sender supports up to **480 LEDs** in one packet; larger arrays
-are truncated. Native refresh follows MPV's reported frame rate in real-time
-Plex mode. WLED Subtitles use the configured refresh rate; console capture has its
-own 30/60 fps selector.
-
-The web server has no application authentication: use it on a trusted network,
-not exposed directly to the Internet. Local capture restrictions do not add
-authentication to the rest of the dashboard.
-
-Graceful server shutdown releases the reader, MPV and network resources.
-`stop.bat` uses forced termination and does not guarantee that cleanup runs.
-
-## Configuration and Repository Hygiene
-
-`config.json` contains the Plex token and local settings and is ignored by Git.
-Virtual environments, downloaded video binaries, calibration videos, generated
-LED tracks and runtime caches are excluded. Keep them locally as needed.
-Keep Chiaki account IDs, pairing PINs, registration keys and OAuth tokens outside
-the repository too. The PlayStation guide uses no personal console credentials.
-Automated browser-test screenshots are written to the OS temporary directory.
-
-## Gallery
-
-Interface captured September 14, 2026, before the PS4 source selector was added.
-Pages are shown at rest, with
-no active playback or encoding. The Plex token is omitted and the WLED address
-is an example; no saved settings were changed for these screenshots.
-
-### Xbox Remote Play
-
-Choose the Remote Play source, adjust framing and monitor local processing.
-The preview is empty here because screen sharing has not started.
-
-![Xbox Remote Play interface before starting capture](screenshot4.png)
-
-### Plex Dashboard
-
-![Plex connection, synchronization and playback status](screenshot1.png)
-
-### WLED Calibration
-
-![WLED layout, capture settings, LED simulator and brightness controls](screenshot2.png)
-
-### Optional WLED Subtitles Encoder
-
-![Optional video encoder for precomputed WLED Subtitles tracks](screenshot3.png)
+</details>
 
 Designed by Sébastien Bédard.

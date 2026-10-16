@@ -2,6 +2,27 @@
 
 Mise à jour : 2026-10-16.
 
+## Documentation réorganisée
+
+- README désormais synthétique, avec Plex, Xbox Series X|S, PS4 et PS5 dans le
+  titre ; installation commune et démarrage Plex conservés. Galerie repliable.
+  README réduit d'environ deux tiers. Liens, ancres et structure du tableau
+  contrôlés après le remaniement.
+- `XBOX_SETUP.md` contient la procédure Xbox extraite du README. Le guide
+  `PLAYSTATION_SETUP.md` reste la référence PS4/PS5 ; liens croisés entre guides.
+- Series S incluse selon la documentation officielle Xbox Remote Play, sans
+  essai physique revendiqué. Les résultats physiques Xbox restent Series X.
+- Documentation uniquement pour ce remaniement ; aucune modification du rendu,
+  du service ou de la configuration locale. Les guides restent grand public.
+- Guide PlayStation : association LAN manuelle Account-ID/PIN en premier,
+  authentification PSN Chiaki optionnelle pour obtenir un identifiant manquant.
+  Ne pas confondre absence de connexion PSN dans le client avec absence de
+  prérequis d'activation du profil console.
+- L'utilisateur autorise une annexe PS4 hors ligne pour clarifier la distinction :
+  procédure Apollo uniquement pour une PS4 déjà jailbreakée, repliée et séparée
+  du parcours normal. README et introduction affirment qu'aucun jailbreak n'est
+  nécessaire sur PS4/PS5 standard. Ne pas appliquer l'annexe aux PS5.
+
 ## État du lot PlayStation pour commit
 
 - Guide public [PLAYSTATION_SETUP.md](PLAYSTATION_SETUP.md) : parcours normal
