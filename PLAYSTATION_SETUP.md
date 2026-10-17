@@ -64,6 +64,29 @@ Check the current Chiaki-ng documentation for your console firmware.
 - Do not enable router port forwarding or put the console in a DMZ for this LAN
   workflow. Guest-network/client isolation can prevent local discovery.
 
+### Open Chiaki From AmbiPlex
+
+On the PC, open [PlayStation capture](http://localhost:5777/remote?source=ps4)
+and click **Démarrer Chiaki**. The button appears with **PlayStation Remote Play**
+selected, before capture starts. If Chiaki is already running, AmbiPlex reports
+it without opening a second instance; it does not bring that window to the front.
+Connecting to the console still follows Chiaki's own settings, including Auto-connect.
+Chrome's screen-sharing chooser remains manual.
+
+Windows only. AmbiPlex looks in PATH, common installation folders and the portable
+`Downloads/AmbiPlex-PS4/chiaki-ng-*/app/chiaki-ng-Win/chiaki.exe` layout.
+For another location, set **`AMBIPLEX_CHIAKI_PATH`** in the environment used by your
+service manager to the absolute local `chiaki.exe` or `chiaki-ng.exe` path, then
+restart AmbiPlex through that manager. Do not commit a personal path or start a
+second web server. A configured but invalid path produces an error instead of
+silently selecting another installation.
+
+The launch request is accepted only from the same local origin via localhost;
+LAN clients and other websites cannot use this endpoint. It accepts no executable
+path or command arguments from the browser and does not change LED/capture settings.
+After updating this feature, restart AmbiPlex in the existing manager and reload
+the capture page to load `remote.js?v=6`.
+
 ## 1. Choose the Console User
 
 There are two different arrangements. Choose before registering Chiaki.

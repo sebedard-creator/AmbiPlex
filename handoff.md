@@ -2,6 +2,24 @@
 
 Mise à jour : 2026-10-16.
 
+## Bouton de lancement Chiaki
+
+- `Démarrer Chiaki` dans `/remote` en mode PlayStation avant capture. Endpoint
+  `POST /api/remote/chiaki/start`, loopback + Origin identique, sans chemin client.
+- `chiaki_launcher.py` : `AMBIPLEX_CHIAKI_PATH` optionnel côté environnement du
+  serveur ; sinon recherche PATH, dossiers usuels et installation portable.
+  Détection en lecture seule réussie sur cette installation, sans lancer Chiaki.
+- Verrou concurrent, détection des instances manuelles et enfant suivi ; pas de
+  doublon volontaire. Processus démarré sans shell, appels système hors asyncio.
+- `remote.js?v=6` : redémarrer AmbiPlex via PyManager puis recharger `/remote`.
+  Pas de second serveur lancé par l'agent. Connexion console selon les réglages
+  Chiaki existants ; sélection de fenêtre Chrome toujours manuelle.
+- Lancement réel à valider avec le bouton après redémarrage du service ; les tests
+  automatisés substituent le lancement natif et ne démarrent pas de session console.
+- Validation : 73 tests Python (11 lanceur, 16 capture/API), capture navigateur
+  et 12 mises en page réussis ; captures desktop/mobile inspectées. Couleurs
+  identiques dans les tests existants, pas de chemin personnel dans le code.
+
 ## Documentation réorganisée
 
 - README désormais synthétique, avec Plex, Xbox Series X|S, PS4 et PS5 dans le

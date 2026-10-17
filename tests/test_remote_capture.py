@@ -1,5 +1,7 @@
 import asyncio
+import subprocess
 import sys
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,6 +11,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from led_engine import LedEngine
+from fastapi import HTTPException
 from remote_capture import FRAME_BYTES, RemoteCapture
 
 
@@ -95,6 +98,59 @@ class RemoteCaptureTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.capture.active)
         self.assertEqual(socket.close.call_args.kwargs["code"], 1008)
         self.engine.send_ddp.assert_not_called()
+
+    async def test_chiaki_launch_rejects_remote_or_cross_origin(self):
+        launcher = Mock()
+        self.capture.chiaki_launcher = launcher
+        for host, origin in [('192.168.1.20', 'http://localhost:5777'),
+                             ('127.0.0.1', 'https://evil.example'),
+                             ('127.0.0.1', 'http://localhost:9999'),
+                             ('127.0.0.1', ''), ('127.0.0.1', 'null')]:
+            request = Socket()
+            request.url = 'http://localhost:5777/api/remote/chiaki/start'
+            request.client.host = host
+            request.headers['origin'] = origin
+            with self.assertRaises(HTTPException) as error:
+                await self.capture.start_chiaki(request)
+            self.assertEqual(error.exception.status_code, 403)
+        launcher.start.assert_not_called()
+
+    async def test_chiaki_launch_runs_off_loop_without_changing_capture(self):
+        request = Socket()
+        request.url = 'http://localhost:5777/api/remote/chiaki/start'
+        main_thread = threading.get_ident()
+        def launch():
+            self.assertNotEqual(threading.get_ident(), main_thread)
+            return {'status': 'started'}
+        self.capture.chiaki_launcher = Mock()
+        self.capture.chiaki_launcher.start.side_effect = launch
+        owner = object()
+        self.capture.owner = owner
+        self.assertEqual(await self.capture.start_chiaki(request), {'status': 'started'})
+        self.assertIs(self.capture.owner, owner)
+        self.engine.send_ddp.assert_not_called()
+
+    async def test_chiaki_launch_errors_do_not_expose_paths(self):
+        request = Socket()
+        request.url = 'http://localhost:5777/api/remote/chiaki/start'
+        self.capture.chiaki_launcher = Mock()
+        for failure, status in [(FileNotFoundError('private-path'), 404),
+                                (OSError('private-path'), 503),
+                                (subprocess.TimeoutExpired('private-path', 3), 503),
+                                (NotImplementedError('Unsupported platform'), 501)]:
+            self.capture.chiaki_launcher.start.side_effect = failure
+            with self.assertRaises(HTTPException) as error:
+                await self.capture.start_chiaki(request)
+            self.assertEqual(error.exception.status_code, status)
+            self.assertNotIn('private-path', error.exception.detail)
+
+    def test_local_https_launch_origin(self):
+        request = Socket()
+        request.url = 'https://localhost:5777/api/remote/chiaki/start'
+        request.headers['origin'] = 'https://localhost:5777'
+        self.assertTrue(self.capture.is_local(request))
+        request.headers['origin'] = 'http://localhost:5777'
+        self.assertFalse(self.capture.is_local(request))
 
     async def test_silent_client_times_out_and_releases_ownership(self):
         socket = Socket()
@@ -205,7 +261,7 @@ def serve_fixture(port):
     from fastapi.staticfiles import StaticFiles
 
     app = FastAPI()
-    stats = {"frames": 0, "colors": []}
+    stats = {"frames": 0, "colors": [], "launches": 0}
 
     def engine_factory():
         engine = LedEngine()
@@ -216,6 +272,10 @@ def serve_fixture(port):
         return engine
 
     capture = RemoteCapture(lambda: CONFIG.copy(), AsyncMock(), engine_factory)
+    def launch():
+        stats['launches'] += 1
+        return {'status': 'started', 'message': 'Chiaki lancé.'}
+    capture.chiaki_launcher = SimpleNamespace(start=launch)
     app.include_router(capture.router)
     app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parents[1] / "static"))
 

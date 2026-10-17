@@ -2,15 +2,17 @@
 
 import asyncio
 import logging
+import subprocess
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import numpy as np
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 
 from led_engine import LedEngine
+from chiaki_launcher import ChiakiLauncher
 
 WIDTH, HEIGHT = 160, 90
 FRAME_BYTES = WIDTH * HEIGHT * 4
@@ -25,9 +27,11 @@ class RemoteCapture:
         self.engine_factory = engine_factory
         self.owner = None
         self.timeout = 15.0
+        self.chiaki_launcher = ChiakiLauncher()
         self.router = APIRouter()
         self.router.add_api_route("/remote", self.page, methods=["GET"])
         self.router.add_api_websocket_route("/api/remote/frames", self.receive)
+        self.router.add_api_route("/api/remote/chiaki/start", self.start_chiaki, methods=["POST"])
 
     @property
     def active(self):
@@ -51,9 +55,21 @@ class RemoteCapture:
                     and origin.hostname in LOCAL_HOSTS
                     and origin.hostname == target.hostname
                     and origin.port == target.port
-                    and origin.scheme == ("https" if target.scheme == "wss" else "http"))
+                    and origin.scheme == ("https" if target.scheme in {"wss", "https"} else "http"))
         except ValueError:
             return False
+
+    async def start_chiaki(self, request: Request):
+        if not self.is_local(request):
+            raise HTTPException(status_code=403, detail="Lancement local depuis AmbiPlex uniquement.")
+        try:
+            return await asyncio.to_thread(self.chiaki_launcher.start)
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=404, detail="Chiaki introuvable. Configure AMBIPLEX_CHIAKI_PATH sur le PC AmbiPlex.") from error
+        except NotImplementedError as error:
+            raise HTTPException(status_code=501, detail=str(error)) from error
+        except (OSError, subprocess.SubprocessError) as error:
+            raise HTTPException(status_code=503, detail="Impossible de démarrer Chiaki sur le PC AmbiPlex.") from error
 
     async def receive(self, websocket: WebSocket):
         if not self.is_local(websocket):

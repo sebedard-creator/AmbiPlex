@@ -89,6 +89,28 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         });
         await page.goto(`${base}/remote`);
         assert.equal(await page.locator('#source').inputValue(), 'xbox');
+        assert(await page.locator('#launch-chiaki').isHidden());
+        assert.equal((await fetch(`${base}/api/remote/chiaki/start`)).status, 405);
+        assert.equal((await fetch(`${base}/api/remote/chiaki/start`, {
+            method: 'POST', headers: {Origin: 'https://evil.example'},
+        })).status, 403);
+        assert.equal((await (await fetch(`${base}/test-stats`)).json()).launches, 0);
+        await page.locator('#source').selectOption('ps4');
+        assert(await page.locator('#launch-chiaki').isVisible());
+        await page.locator('#launch-chiaki').click();
+        await page.waitForFunction(() => document.getElementById('chiaki-status').textContent === 'Chiaki lancé.');
+        assert.equal((await (await fetch(`${base}/test-stats`)).json()).launches, 1);
+        assert.equal(await page.evaluate(() => window.captureOptions), undefined);
+        assert(await page.locator('#launch-chiaki').isEnabled());
+        await page.route('**/api/remote/chiaki/start', route => route.fulfill({
+            status: 404, json: {detail: 'Chiaki introuvable.'},
+        }));
+        await page.locator('#launch-chiaki').click();
+        await page.waitForFunction(() => document.getElementById('chiaki-status').textContent === 'Chiaki introuvable.');
+        assert(await page.locator('#launch-chiaki').isEnabled());
+        await page.unroute('**/api/remote/chiaki/start');
+        await page.locator('#source').selectOption('xbox');
+        assert(await page.locator('#chiaki-status').isHidden());
         assert(await page.locator('#stop').isDisabled());
         await page.locator('#start').click();
         await page.waitForFunction(() => document.getElementById('state').textContent === 'Remote Play actif');
@@ -157,6 +179,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
             assert.equal(options.video.height, undefined);
             assert.deepEqual(options.video.frameRate, {ideal: 60, max: 60});
             assert(await page.locator('#source').isDisabled());
+            assert(await page.locator('#launch-chiaki').isDisabled());
             if (!decorated) {
                 // Simulate a hidden page's heartbeat timer stopping, with no new source frames.
                 await page.evaluate(() => {
@@ -271,6 +294,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
              'PS4 window preference and bookmark', '540p window exact LED colors',
              'manual window-toolbar crop', 'native-window video fallback',
              'source dimensions and surface', 'unreadable window recovery',
+             'local Chiaki launch, missing app recovery, no auto capture, cross-origin/GET rejected',
              'server probes survive 17s without frames or heartbeat timers; exact colors on resume',
              'desktop/mobile layout', 'no JS errors']}));
     } finally {

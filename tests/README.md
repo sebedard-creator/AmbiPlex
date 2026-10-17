@@ -94,6 +94,24 @@ local-versus-remote comparison when this change was made.
 
 ## Remote Play capture
 
+### Local Chiaki Launcher
+
+`test_chiaki_launcher.py` covers explicit-path validation, PATH/common-folder/
+portable discovery, native launch arguments without a shell, tracked/manual
+instances, restart after exit, concurrent clicks, inventory failures and
+unsupported platforms. Process discovery/spawning is mocked, not a real console
+session. The actual local portable executable was separately found read-only.
+
+Remote-capture tests cover loopback and matching-Origin launch restrictions,
+HTTPS scheme matching, sanitized launch failures and execution outside the
+asyncio event-loop thread without changing capture ownership or emitting DDP.
+Browser checks exercise POST success, missing-application recovery, GET and
+cross-origin rejection, button visibility/locking and no automatic screen capture.
+Validated on 2026-10-16: all 73 Python tests passed (11 launcher, 16 capture/API),
+the capture browser checks and all 12 interface layouts passed. Desktop/mobile
+screenshots were inspected. No actual Chiaki process/console session was launched
+by these tests; the real button still needs an interactive test after restart.
+
 `test_remote_capture.py` exercises RGBA-to-LED equivalence, single ownership,
 Plex output exclusion (including a capture started during WLEDSUB loading),
 local Origin checks, invalid frames, missing WLED configuration, timeout,

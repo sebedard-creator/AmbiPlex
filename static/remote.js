@@ -5,9 +5,46 @@ const video = byId('video');
 const canvas = byId('frame');
 const context = canvas.getContext('2d', {alpha: false, willReadFrequently: true, colorSpace: 'srgb'});
 let session = null;
+let launchingChiaki = false;
 
 // A bookmark can select PS4 without changing the saved Plex/WLED settings.
 if (new URLSearchParams(location.search).get('source') === 'ps4') byId('source').value = 'ps4';
+
+function updateChiakiButton() {
+    const playstation = byId('source').value === 'ps4';
+    byId('launch-chiaki').hidden = !playstation;
+    byId('launch-chiaki').disabled = launchingChiaki || Boolean(session);
+    byId('chiaki-status').hidden = !playstation || !byId('chiaki-status').textContent;
+}
+
+byId('source').addEventListener('change', () => {
+    byId('chiaki-status').textContent = '';
+    updateChiakiButton();
+});
+byId('launch-chiaki').addEventListener('click', async () => {
+    if (launchingChiaki || session) return;
+    launchingChiaki = true;
+    const status = byId('chiaki-status');
+    status.textContent = 'Ouverture de Chiaki…';
+    status.classList.remove('error');
+    updateChiakiButton();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+        const response = await fetch('/api/remote/chiaki/start', {method: 'POST', signal: controller.signal});
+        const data = await response.json();
+        if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Lancement impossible.');
+        status.textContent = data.message;
+    } catch (error) {
+        status.textContent = error.name === 'AbortError' ? 'Le lancement ne répond pas.' : error.message;
+        status.classList.add('error');
+    } finally {
+        clearTimeout(timeout);
+        launchingChiaki = false;
+        updateChiakiButton();
+    }
+});
+updateChiakiButton();
 
 function stopCapture(message = 'Plex actif') {
     const previous = session;
@@ -32,6 +69,7 @@ function stopCapture(message = 'Plex actif') {
     byId('processing').textContent = '-';
     byId('capture-surface').textContent = '-';
     byId('source-size').textContent = '-';
+    updateChiakiButton();
 }
 
 function fail(current, message) {
@@ -118,6 +156,7 @@ byId('start').addEventListener('click', async () => {
     }
     const current = {pending: false, ready: false, lastFrame: -Infinity, count: 0, measuredAt: performance.now()};
     session = current;
+    updateChiakiButton();
     byId('start').disabled = true;
     byId('stop').disabled = false;
     byId('source').disabled = true;

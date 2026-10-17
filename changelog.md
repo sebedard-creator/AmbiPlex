@@ -1,5 +1,21 @@
 # Journal des Modifications (Changelog) - AmbiPlex
 
+## 2026-10-16 - Lancement de Chiaki depuis Remote Play
+
+- Bouton « Démarrer Chiaki » pour la source PlayStation avant capture, avec
+  retour de lancement, application déjà ouverte et erreurs récupérables.
+- API POST réservée au même Origin local ; GET, LAN et sites tiers refusés,
+  aucun chemin ou argument exécutable accepté du navigateur.
+- Détection Windows dans PATH, dossiers usuels et layout portable ; chemin
+  serveur optionnel `AMBIPLEX_CHIAKI_PATH`, sans chemin personnel versionné.
+- Détection des instances existantes, verrou de lancement, appels système hors
+  boucle asyncio, aucun shell. La capture Chrome reste explicitement choisie.
+- Aucun changement des couleurs ou des réglages LED. Redémarrage via PyManager
+  et actualisation de la page requis (`remote.js?v=6`).
+- 73 tests Python réussis, dont 11 pour le lanceur et 16 pour la capture/API ;
+  capture navigateur et 12 mises en page réussies, captures mobile/desktop
+  inspectées. Installation réelle détectée sans lancement de session console.
+
 ## 2026-10-16 - Guide PlayStation et préparation du commit
 
 - README raccourci et réorganisé : titre Plex, Xbox Series X|S, PS4 et PS5,

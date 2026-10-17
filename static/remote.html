@@ -6,7 +6,7 @@
     <title>AmbiPlex | Remote Play</title>
     <link rel="stylesheet" href="/static/style.css?v=3">
     <link rel="stylesheet" href="/static/remote.css?v=3">
-    <script src="/static/remote.js?v=5" defer></script>
+    <script src="/static/remote.js?v=6" defer></script>
 </head>
 <body>
 <main class="app-shell">
@@ -19,11 +19,13 @@
     </header>
     <section class="toolbar" aria-label="Capture">
         <label>Source <select id="source"><option value="xbox">Xbox Remote Play</option><option value="ps4">PlayStation Remote Play</option></select></label>
+        <button id="launch-chiaki" type="button" hidden>Démarrer Chiaki</button>
         <button id="start">Choisir la source</button>
         <button id="stop" disabled>Arrêter</button>
         <label>Cadence <select id="fps"><option value="30">30 images/s</option><option value="60" selected>60 images/s</option></select></label>
         <label><input id="center" type="checkbox" checked> Centrage 16:9</label>
     </section>
+    <p id="chiaki-status" class="badge" role="status" hidden></p>
     <div class="capture-layout">
         <section class="preview" aria-label="Image transmise">
             <video id="video" muted playsinline></video>

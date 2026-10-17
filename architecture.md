@@ -39,6 +39,7 @@ consommation littéralement nulle ni une synchronisation sans latence.
 | `wled_reader.py` | Validation, cache, décompression LZ4 et accès memmap. |
 | `monitoring.py` | Dernier état de simulation en attente et file séparée pour les événements. |
 | `remote_capture.py` | Capture navigateur locale, WebSocket RGBA8 et exclusion de la sortie Plex. |
+| `chiaki_launcher.py` | Détection et lancement local de Chiaki, sans commande fournie par le navigateur. |
 | `bake.py` | Décodage FFmpeg et création des pistes RGB565 compressées. |
 | `rover.py` | Interface Windows d'encodage par lots. |
 | `static/` | Tableau de bord, simulateur et interface de l'encodeur. |
@@ -73,6 +74,17 @@ console. Celle-ci se règle dans Chiaki (540p/720p pour le premier essai PS4).
 Le profil ne fixe aucune contrainte de largeur/hauteur ni aucun recadrage propre
 à une application : les marges manuelles s'appliquent avant le centrage 16:9.
 Audio désactivé pour les deux sources. Aucun accès aux identifiants PlayStation.
+
+Le bouton « Démarrer Chiaki », visible pour PlayStation avant le partage, appelle
+`POST /api/remote/chiaki/start`. Contrôle loopback et Origin identique (hôte,
+port, protocole), GET et clients distants refusés. Aucun chemin ni argument n'est
+accepté du client. Une variable d'environnement serveur `AMBIPLEX_CHIAKI_PATH`
+peut préciser l'exécutable ; sinon PATH, dossiers usuels et layout portable sont
+examinés. Seuls les exécutables locaux nommés `chiaki.exe`/`chiaki-ng.exe` sont admis.
+L'inventaire Windows évite aussi les doublons ouverts manuellement ; un verrou
+sérialise les clics concurrents. Appels système hors boucle asyncio, lancement
+sans shell. Aucun changement de source, d'identifiants, de rendu ou de partage.
+Un redémarrage via le gestionnaire habituel est requis après cette mise à jour.
 
 `/remote` utilise `getDisplayMedia` apres une action de l'utilisateur, puis
 `MediaStreamTrackProcessor` dans Chrome/Edge (buffer d'une image), avec repli

@@ -98,7 +98,9 @@ const config = {
                 } else {
                     assert.equal(await page.locator('#back-plex').getAttribute('href'), '/');
                     assert.equal(await page.locator('#source').inputValue(), 'xbox');
+                    assert(await page.locator('#launch-chiaki').isHidden());
                     await page.locator('#source').selectOption('ps4');
+                    assert(await page.locator('#launch-chiaki').isVisible());
                     assert.equal(await page.locator('#source-size').textContent(), '-');
                 }
                 const overflow = await page.evaluate(() => ({
